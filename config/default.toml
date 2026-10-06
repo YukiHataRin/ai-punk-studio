@@ -1,0 +1,72 @@
+# Astra Pro + MediaPipe 3D 骨架設定
+# 內參為依原廠 FOV 推算的估計值（SDK 在 macOS 讀不到出廠校正），
+# 之後做 RGB-D 校正後把結果填回這裡即可。
+
+[rgb]
+index = 0            # AVFoundation 相機編號，0 = Astra Pro HD Camera
+width = 1280
+height = 720
+# 原廠 RGB FOV 66.1° x 40.2° @ 1280x720
+fx = 983.0
+fy = 984.0
+cx = 640.0
+cy = 360.0
+
+[depth]
+width = 640
+height = 480
+fps = 30
+# 原廠深度 FOV 58.4° x 45.5° @ 640x480
+fx = 572.0
+fy = 572.0
+cx = 320.0
+cy = 240.0
+min_mm = 400
+max_mm = 6000
+
+[extrinsics]
+# 深度相機座標 → RGB 相機座標（公尺）。執行時可用 [ ] 微調 x 並看終端機輸出的數值。
+translation = [-0.025, 0.0, 0.0]
+rotation_deg = [0.0, 0.0, 0.0]
+
+[pose]
+model = "models/pose_landmarker_heavy.task"   # lite / full / heavy，heavy 最穩
+num_poses = 4                 # 最多同時偵測人數
+delegate = "cpu"              # cpu / gpu。macOS 的 GPU delegate 會洩漏 Metal 記憶體，請保持 cpu
+min_detection_confidence = 0.5
+min_presence_confidence = 0.5
+min_tracking_confidence = 0.5
+
+[segmentation]
+model = "models/yolo11n-seg.pt"
+tracker = "config/botsort_reid.yaml"   # BoT-SORT + ReID
+device = "auto"               # auto / mps / cuda:0 / cpu
+confidence = 0.4
+image_size = 640
+tracking = true
+opacity = 0.55                # 遮罩疊圖透明度
+
+[fusion]
+min_score = 0.3               # 骨架可見關節落在遮罩內的比例，低於此值不配對
+mask_erode_px = 2             # 遮罩縮到深度解析度後內縮幾像素，避開對齊誤差最大的邊緣
+use_mask = true               # 關節深度只取自己遮罩內的值（關閉則只用軀幹深度門檻）
+point_cloud = false           # 計算每人的遮罩點雲（3D 視圖顯示用）
+
+[skeleton]
+depth_window = 7              # 在關節周圍取深度中位數的視窗大小（registered depth 像素）
+min_visibility = 0.5          # 低於此可見度的關節改用 MediaPipe world landmarks 補
+joint_depth_offset = 0.05     # 深度量到的是身體表面，關節中心再往後推的距離（公尺）
+depth_gate = 0.6              # 關節深度與軀幹深度差超過此值（公尺）視為取到背景，改用推估
+
+[smoothing]
+# One Euro Filter：min_cutoff 越小越穩但越黏；beta 越大，快速動作越跟手
+min_cutoff_2d = 1.0           # 2D 疊圖（像素）
+beta_2d = 0.02
+min_cutoff_3d = 0.8           # 3D 骨架（公尺）
+beta_3d = 0.6
+match_distance = 0.15         # 跨影格配對同一人的最大位移（佔畫面寬度比例）
+track_timeout = 0.5           # 消失超過幾秒就刪除該人的追蹤
+
+[view]
+rgb_display_width = 960       # 左側 2D 畫面顯示寬度
+panel_size = 540              # 右側 3D 畫面邊長

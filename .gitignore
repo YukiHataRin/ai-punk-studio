@@ -1,0 +1,20 @@
+# 環境與快取
+.conda/
+.venv/
+.runtime/
+__pycache__/
+*.egg-info/
+build/
+.DS_Store
+
+# Orbbec SDK 自動產生的 log
+Log/
+
+# 模型與測試素材（由 scripts/download_models.sh 下載）
+models/*.pt
+models/*.task
+tests/data/person.jpg
+
+# 使用者資料：錄影、截圖可能含人像與環境
+recordings/
+captures/
