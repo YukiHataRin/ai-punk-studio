@@ -11,15 +11,8 @@ import argparse
 import csv
 from pathlib import Path
 
+from astra_studio.core.skeleton_format import FORMATS, MEDIAPIPE33
 from astra_studio.io.recorder import read_skeleton
-
-JOINT_NAMES = [
-    "nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer",
-    "left_ear", "right_ear", "mouth_left", "mouth_right", "left_shoulder", "right_shoulder", "left_elbow",
-    "right_elbow", "left_wrist", "right_wrist", "left_pinky", "right_pinky", "left_index", "right_index",
-    "left_thumb", "right_thumb", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle",
-    "right_ankle", "left_heel", "right_heel", "left_foot_index", "right_foot_index",
-]
 
 
 def export(session_dir, out_path=None):
@@ -31,8 +24,9 @@ def export(session_dir, out_path=None):
         w.writerow(["frame", "t", "id", "joint", "joint_name", "x", "y", "z", "measured"])
         for rec in read_skeleton(session_dir / "skeleton.jsonl"):
             for person in rec["people"]:
+                names = FORMATS[person.get("format", MEDIAPIPE33.name)].names
                 for j, (xyz, m) in enumerate(zip(person.get("joints", []), person.get("measured", []))):
-                    w.writerow([rec["frame"], rec["t"], person["id"], j, JOINT_NAMES[j], *xyz, m])
+                    w.writerow([rec["frame"], rec["t"], person["id"], j, names[j], *xyz, m])
                     rows += 1
     return out_path, rows
 

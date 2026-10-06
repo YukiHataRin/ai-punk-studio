@@ -1,19 +1,20 @@
 # Astra Multi-Person Skeleton
 
 用 **Orbbec Astra Pro** RGB-D 相機做**多人 3D 骨架追蹤**：
-YOLO11 人體分割 + BoT-SORT 追蹤 ID + MediaPipe Pose，再以深度相機把每個關節換算成公制 3D 座標，
+YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度相機把每個關節換算成公制 3D 座標，
 附原生桌面介面（Astra Studio）、錄製與回放。
 
 ![演算法架構](docs/figures/architecture_preview.png)
 
 ## 功能
 
-- **多人 3D 骨架**：每人 33 個關節的公制 3D 座標（公尺），標明每個關節是深度實測還是推估
+- **多人 3D 骨架**：每人 26 個關節（Halpe26，含腳趾、腳跟）的公制 3D 座標（公尺），標明每個關節是深度實測還是推估
+- **由上而下逐人估計**：先用 YOLO 框出每個人，再對每個人各跑一次 RTMPose；骨架直接屬於該人的 ID，多人時不會互相跳動
 - **人體分割與穩定 ID**：YOLO11 像素級遮罩 + BoT-SORT（ReID），人交錯或短暫遮擋仍保留同一 ID
 - **遮罩內取深度**：關節深度只取自己遮罩內的值，前方的人或背景不會混進來；被擋住的關節改用推估
 - **即時介面**：疊圖／並排 3D／深度／僅骨架／僅輪廓五種模式、可旋轉 3D 視圖（含點雲）、每人卡片、即時調參
 - **錄製與回放**：RGB 影片 + 16-bit 深度 + 每幀 3D 骨架，可不接相機回放，骨架可轉 CSV
-- **約 30 fps**：分割（GPU）與骨架（CPU）平行推論，每幀約 28 ms（Apple M5、1280×720）
+- **約 30 fps**：分割（GPU / MPS）與骨架（CoreML）平行推論，單人每幀約 25 ms、三人約 35 ms（Apple M5、1280×720）
 
 ## 需求
 
@@ -43,7 +44,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 # 4. 安裝本專案（可編輯模式）
 ./.conda/bin/python -m pip install -e . --no-deps
 
-# 5. 下載模型（YOLO11n-seg、MediaPipe Pose lite/full/heavy）與測試圖
+# 5. 下載模型（YOLO11n-seg、RTMPose-m、MediaPipe Pose）與測試圖
 ./scripts/download_models.sh
 ```
 
@@ -78,7 +79,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 | 上方 | RGB / 深度連線燈號、處理 fps |
 | 主畫面 | **疊圖**：RGB + 遮罩 + 2D 骨架 + ID／距離<br>**並排 3D**：左疊圖、右 3D 視圖（左鍵拖曳旋轉、滾輪縮放）<br>**深度**：對齊後深度疊在 RGB 上，檢查對齊<br>**僅骨架**：黑底骨架<br>**僅輪廓**：黑底，只畫每人遮罩外框 |
 | 人物卡片 | 每個 ID 一張：距離、實測關節數（顏色與畫面中一致）|
-| 右側設定 | 圖層開關、分割信心值、BoT-SORT 開關、骨架模型（lite/full/heavy）、平滑強度、遮罩取樣、對齊微調、各階段耗時 |
+| 右側設定 | 圖層開關、分割信心值、BoT-SORT 開關、骨架模型（RTMPose-m 或 MediaPipe）、平滑強度、遮罩取樣、對齊微調、各階段耗時 |
 | 下方 | 狀態、**● 錄製**、截圖 |
 
 - 實心關節點 = 深度實測，空心 = 推估
@@ -93,7 +94,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 |---|---|
 | `rgb.mp4` | 原始 RGB（不含疊圖），可用 `--play` 重新跑整條管線 |
 | `depth/*.png` | 16-bit 深度（mm，0 = 無效），與影片逐幀對應 |
-| `skeleton.jsonl` | 每幀一行：每人 ID、距離（是否實測）、33 關節 3D 座標與是否實測、遮罩框 |
+| `skeleton.jsonl` | 每幀一行：每人 ID、距離（是否實測）、關節 3D 座標與是否實測、骨架格式、遮罩框 |
 | `meta.json` | 錄製當下的相機內外參 |
 
 右側「錄製」區取消「包含 RGB-D 影像」時只寫 `skeleton.jsonl`（檔案小很多，但無法回放）。
@@ -115,7 +116,8 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 | `[rgb]` `[depth]` | `fx` `fy` `cx` `cy` | 相機內參（目前依原廠 FOV 推算）|
 | `[extrinsics]` | `translation` | 深度 → RGB 相機的平移；可在介面「深度」模式下用滑桿微調後填回 |
 | `[segmentation]` | `confidence` `tracking` | YOLO 信心值、是否啟用 BoT-SORT |
-| `[pose]` | `model` `num_poses` | 骨架模型（heavy 最穩）、最多人數 |
+| `[pose]` | `backend` `num_poses` | `rtmpose`（逐人，多人穩定）或 `mediapipe`；最多估計骨架的人數 |
+| `[pose]` | `rtm_provider` `pipelined` | RTMPose 用 CoreML 或 CPU；是否用上一幀人框與 YOLO 平行 |
 | `[fusion]` | `use_mask` `point_cloud` | 遮罩內取深度、3D 點雲 |
 | `[skeleton]` | `depth_gate` | 關節深度與人體基準深度差超過此值視為錯值 |
 | `[smoothing]` | `min_cutoff_3d` `beta_3d` | One Euro 平滑：抖動就調小 `min_cutoff`，太黏就調大 `beta` |
@@ -125,10 +127,11 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 每幀流程（詳見上方架構圖）：
 
 1. **擷取**：RGB（UVC，1280×720）與深度（OpenNI，640×480）各一條執行緒，只取最新影格
-2. **分割 ∥ 骨架**：YOLO11n-seg + BoT-SORT（GPU / MPS）與 MediaPipe Pose（CPU）在兩條執行緒平行執行
+2. **分割 ∥ 骨架**：YOLO11n-seg + BoT-SORT（GPU / MPS）找出每個人的遮罩、框與 ID；同時 RTMPose-m（CoreML）
+   以**上一幀**的人框逐人估計 26 點骨架（30 fps 下人只移動幾個像素，框已放大 1.25 倍），兩者平行執行
 3. **深度對齊**：以內外參把深度圖投影到 RGB 視角（軟體 D2C）
-4. **融合**：依「骨架可見關節落在遮罩內的比例」把骨架配對到遮罩；關節深度只取自己遮罩內、且與人體基準深度差 < 0.6 m 的值，取中位數 + 5 cm（表面 → 關節中心）
-5. **補值**：量不到深度的關節，以 MediaPipe world landmarks 骨架平移到實測關節上補齊；只有遮罩沒有骨架的人，以遮罩深度中位數給出 3D 位置
+4. **融合**：骨架依 track ID 對到這一幀的遮罩；關節深度只取自己遮罩內、且與人體基準深度差 < 0.6 m 的值，取中位數 + 5 cm（表面 → 關節中心）
+5. **補值**：量不到深度的關節，2D 位置照用、深度取這個人實測關節的中位數；只有遮罩沒有骨架的人，以遮罩深度中位數給出 3D 位置
 6. **平滑**：以 track ID 為 key 的 One Euro Filter
 
 ## 專案結構
@@ -138,7 +141,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ├── src/astra_studio/
 │   ├── core/          純演算法（不依賴 Qt / torch / mediapipe）：對齊、融合、3D 提升、平滑
 │   ├── sensors/       Astra Pro 擷取、錄製回放、相機列舉
-│   ├── perception/    YOLO11 分割 + BoT-SORT、MediaPipe Pose、推論裝置選擇
+│   ├── perception/    YOLO11 分割 + BoT-SORT、RTMPose 逐人骨架、MediaPipe Pose、推論裝置選擇
 │   ├── pipeline/      單幀流程（分割 ∥ 骨架 ∥ 對齊 → 融合 → 平滑）、Qt 背景 worker
 │   ├── render/        2D 疊圖、3D 場景資料、ID 色票
 │   ├── io/            錄製
@@ -163,14 +166,17 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 
 - **對齊是估計值**：Astra Pro 的硬體深度對齊在 macOS 上會卡住，SDK 也讀不到出廠校正，內外參依原廠 FOV 推算，3D 位置可能有數公分誤差。可在「深度」模式用「對齊 x 平移」微調。
 - **深度有效範圍約 0.4–6 m**：太近或太遠時整個人改用推估（距離前標 ≈）。要量到全身，請站在相機前約 1–3 m。
-- **MediaPipe 固定用 CPU**：macOS 上 mediapipe 的 GPU delegate 每幀洩漏約 14 MB Metal 記憶體（0.10.35 與 1.0.1 皆然），30 fps 下不到一分鐘耗盡；1.0.1 的 CPU delegate 又會崩潰，因此固定 0.10.35 + CPU。
-- **MediaPipe 0.10.35 的使用資料回傳**：此版本會嘗試連線 `play.googleapis.com`（log 中可見 `portable_clearcut_uploader`），官方未提供關閉方式（[google-ai-edge/mediapipe#6291](https://github.com/google-ai-edge/mediapipe/issues/6291)）。介意者可用防火牆（如 LuLu、Little Snitch）阻擋。
+- **新出現的人晚一幀才有骨架**：RTMPose 用上一幀的人框才能與 YOLO 平行；設 `[pose] pipelined = false` 可改為同一幀（三人時約 45 ms／幀）。
+- **RTMPose 的 CoreML 不能改變 batch 大小**，因此每人各跑一次（約 4 ms／人）；CoreML 出錯時自動改用 CPU（約 10 ms／人）。
+- **MediaPipe 模式固定用 CPU**：macOS 上 mediapipe 的 GPU delegate 每幀洩漏約 14 MB Metal 記憶體（0.10.35 與 1.0.1 皆然），30 fps 下不到一分鐘耗盡；1.0.1 的 CPU delegate 又會崩潰，因此固定 0.10.35 + CPU。
+- **MediaPipe 0.10.35 的使用資料回傳**（只在選用 MediaPipe 骨架時；預設的 RTMPose 模式不會載入 mediapipe）：此版本會嘗試連線 `play.googleapis.com`（log 中可見 `portable_clearcut_uploader`），官方未提供關閉方式（[google-ai-edge/mediapipe#6291](https://github.com/google-ai-edge/mediapipe/issues/6291)）。介意者可用防火牆（如 LuLu、Little Snitch）阻擋。
 - **Astra Pro 的 RGB 與深度不同步**：兩者是獨立裝置，快速動作時可能有一兩幀時間差。
 
 ## 致謝
 
 - [Orbbec pyorbbecsdk](https://github.com/orbbec/pyorbbecsdk)：Astra Pro 深度擷取（v1，支援 OpenNI 協定裝置）
-- [MediaPipe](https://github.com/google-ai-edge/mediapipe)：Pose Landmarker
+- [RTMPose / MMPose](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmpose)：Halpe26 逐人骨架模型（Apache-2.0）；前後處理參考 [rtmlib](https://github.com/Tau-J/rtmlib)
+- [MediaPipe](https://github.com/google-ai-edge/mediapipe)：Pose Landmarker（替代骨架後端）
 - [Ultralytics](https://github.com/ultralytics/ultralytics)：YOLO11 實例分割與追蹤整合
 - [BoT-SORT](https://github.com/NirAharon/BoT-SORT)：多目標追蹤與 ReID
 - [PySide6](https://doc.qt.io/qtforpython-6/)、[qt-material](https://github.com/UN-GCPDS/qt-material)、[pyqtgraph](https://github.com/pyqtgraph/pyqtgraph)：介面與 3D 視圖
@@ -179,4 +185,4 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 
 ## 授權
 
-[AGPL-3.0](LICENSE)。本專案使用的 Ultralytics YOLO 以 AGPL-3.0 授權；MediaPipe、pyorbbecsdk 為 Apache-2.0。
+[AGPL-3.0](LICENSE)。本專案使用的 Ultralytics YOLO 以 AGPL-3.0 授權；RTMPose、MediaPipe、pyorbbecsdk 為 Apache-2.0。

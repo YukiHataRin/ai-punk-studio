@@ -10,12 +10,12 @@ import numpy as np
 from .geometry import Intrinsics
 from .types import PoseObservation, SegmentedPerson
 
-BODY = np.r_[0, 11:33]  # 鼻子 + 身體關節；臉部其他點都擠在頭部，不提供額外資訊
 MIN_VISIBILITY = 0.5
 
 
 def match_score(pose: PoseObservation, mask: np.ndarray):
-    vis = BODY[pose.visibility[BODY] >= MIN_VISIBILITY]
+    body = np.array(pose.fmt.body)  # 臉部點都擠在頭部，不提供額外資訊
+    vis = body[pose.visibility[body] >= MIN_VISIBILITY]
     if vis.size == 0:
         return 0.0
     h, w = mask.shape
@@ -36,6 +36,35 @@ def associate(poses, segments, min_score=0.3):
         pairs[i] = j
         used_p.add(i)
         used_s.add(j)
+    return pairs
+
+
+def box_iou(a, b):
+    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
+    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
+    inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def match_previous_boxes(prev, segments, min_iou=0.3):
+    """把上一幀的 (track_id, box) 對應到這一幀的 segment：同 track ID 優先，否則用框的 IoU 貪婪配對。
+    回傳 {prev 索引: segment 索引}。"""
+    pairs, used = {}, set()
+    by_id = {s.track_id: j for j, s in enumerate(segments) if s.track_id is not None}
+    for k, (tid, _) in enumerate(prev):
+        if tid is not None and tid in by_id:
+            pairs[k] = by_id[tid]
+            used.add(by_id[tid])
+    rest = sorted(((box_iou(box, s.box), k, j) for k, (_, box) in enumerate(prev) if k not in pairs
+                   for j, s in enumerate(segments) if j not in used), reverse=True)
+    for iou, k, j in rest:
+        if iou < min_iou:
+            break
+        if k in pairs or j in used:
+            continue
+        pairs[k] = j
+        used.add(j)
     return pairs
 
 

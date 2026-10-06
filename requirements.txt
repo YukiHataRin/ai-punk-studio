@@ -8,6 +8,7 @@ torch>=2.7
 torchvision>=0.22
 ultralytics>=8.3,<9
 lap>=0.5.12
+onnxruntime>=1.20   # RTMPose 推論（CoreML / CPU）
 cv2-enumerate-cameras>=1.4,<2
 # Qt 介面（第三階段）
 PySide6>=6.8,<7

@@ -65,6 +65,7 @@ class RecorderTest(unittest.TestCase):
         self.assertAlmostEqual(recs[3]["t"], 0.1, places=3)
         p3, p5 = recs[0]["people"]
         self.assertEqual(len(p3["joints"]), 33)
+        self.assertEqual(p3["format"], "mediapipe33")
         self.assertTrue(p3["distance_measured"])
         self.assertNotIn("joints", p5)
         self.assertEqual(p5["centroid"], [1.0, 0.0, 3.0])

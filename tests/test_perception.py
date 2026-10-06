@@ -48,6 +48,30 @@ class SegmentationTest(unittest.TestCase):
         self.assertEqual(ids[1], ids[2])
 
 
+@unittest.skipUnless(Path(CFG["pose"]["rtm_model"]).exists() and Path(CFG["segmentation"]["model"]).exists(), "缺 RTMPose / YOLO 模型")
+class RTMPoseTest(unittest.TestCase):
+    def test_top_down_on_yolo_box(self):
+        from astra_studio.core.skeleton_format import HALPE26
+        from astra_studio.perception.pose_rtm import RTMPoseEstimator
+        from astra_studio.perception.segmentation import PersonSegmenter
+        img = frame()
+        box = PersonSegmenter(CFG["segmentation"])(img, track=False).people[0].box
+        est = RTMPoseEstimator(CFG["pose"])
+        poses = est(img, [box, box * 0.5])
+        self.assertEqual(len(poses), 2)
+        p = poses[0]
+        self.assertEqual(p.fmt, HALPE26)
+        self.assertEqual(p.pixels.shape, (26, 2))
+        self.assertIsNone(p.world)
+        self.assertGreater(float(np.median(p.visibility)), 0.5)
+        x1, y1, x2, y2 = box
+        pad = 0.15 * max(x2 - x1, y2 - y1)
+        inside = (p.pixels[:, 0] > x1 - pad) & (p.pixels[:, 0] < x2 + pad) & (p.pixels[:, 1] > y1 - pad) & (p.pixels[:, 1] < y2 + pad)
+        self.assertTrue(inside.all())
+        est.max_people = 1
+        self.assertIsNone(est(img, [box * 0.5, box])[0])  # 超過上限時留下較大的框
+
+
 @unittest.skipUnless(Path(CFG["pose"]["model"]).exists(), "缺 MediaPipe 模型")
 class PoseTest(unittest.TestCase):
     def test_detects_one_person(self):
@@ -66,10 +90,17 @@ class PipelineTest(unittest.TestCase):
     """真實模型 + 合成深度（整面 2.2 m）跑完整融合流程。"""
 
     def test_fused_person_has_mask_skeleton_and_position(self):
+        for backend in ("rtmpose", "mediapipe"):
+            with self.subTest(backend=backend):
+                self._check_backend(backend)
+
+    def _check_backend(self, backend):
         import copy
         from astra_studio.pipeline.pipeline import Pipeline
         cfg = copy.deepcopy(CFG)
+        cfg["pose"]["backend"] = backend
         pipe = Pipeline(cfg)
+        self.assertEqual(pipe.top_down, backend == "rtmpose")
         try:
             img = frame()
             depth = np.full((480, 640), 2200, np.uint16)

@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ..perception.pose import CONNECTIONS
 from .colors import hex_to_bgr, track_hex
 
 DIM = 0.4  # 推估關節的亮度倍率
@@ -43,17 +42,18 @@ def build_scene(people, point_cloud=False):
         sk = person.skeleton
         if sk is not None:
             pts = to_gl(sk.points)
-            for a, b in CONNECTIONS:
-                if a < 11 or b < 11:  # 臉部連線在 3D 裡太擠，省略
+            fmt = sk.fmt
+            for a, b in fmt.connections:
+                if a in fmt.face or b in fmt.face:  # 臉部連線在 3D 裡太擠，省略
                     continue
                 lines += [pts[a], pts[b]]
                 c = bright if sk.measured[a] and sk.measured[b] else dim
                 lcol += [c, c]
-            body = np.arange(11, 33)
+            body = np.array(fmt.body)
             joints.append(pts[body])
             jcol.append(np.where(sk.measured[body, None], bright, dim))
-            ankles += [pts[j, 2] for j in (27, 28) if sk.measured[j]]
-            head = pts[0] + [0, 0, 0.25]
+            ankles += [pts[j, 2] for j in fmt.ankles if sk.measured[j]]
+            head = pts[fmt.head] + [0, 0, 0.25]
         elif person.centroid is not None:
             c = to_gl(person.centroid)[0]
             joints.append(c[None])

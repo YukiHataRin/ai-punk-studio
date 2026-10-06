@@ -20,7 +20,7 @@ OUT = ROOT / "docs" / "figures" / "architecture.svg"
 POSE = json.loads((ROOT / "docs" / "figures" / "pose_sample.json").read_text())
 
 # 實測每幀耗時（ms，中位數）：pipeline.process 的 timings + DepthToRgb 單獨量測
-TIMINGS = {"segmentation": 25.3, "pose": 21.9, "d2c": 1.6, "fusion": 1.2, "total": 27.8}
+TIMINGS = {"segmentation": 22.5, "pose": 4.2, "d2c": 1.9, "fusion": 1.3, "total": 25.3, "total_3p": 35.0}
 
 W, H = 1800, 1030
 FONT = "'Helvetica Neue', Helvetica, Arial, 'PingFang TC', 'Noto Sans TC', sans-serif"
@@ -184,16 +184,21 @@ text(BX + 14, BY + BH - 10, "輸出／人：遮罩 (H×W)、框、track ID", 12,
 
 # ================================================================ c 骨架
 CY = BY + BH + 50
-panel(BX, CY - 18, "c", "多人姿態估計")
+panel(BX, CY - 18, "c", "逐人骨架估計（由上而下）")
 rect(BX, CY, BW, BH, C["rgb"][1], r=10)
 add('<g id="asset-pose-frame">')
 rect(tx, CY + 14, tw, th, "#dbe7f5", "#b9cde6", r=4)
-skeleton(body(tx + 52, CY + 76, 82), rgb_col, 1.5)
-skeleton(body(tx + 108, CY + 80, 74, mirror=True), rgb_col, 1.5)
+for cx, cy, hh, mir, col in ((tx + 52, CY + 76, 82, False, ID1), (tx + 108, CY + 80, 74, True, ID2)):
+    P = body(cx, cy, hh, mir)
+    x0, y0 = P[11:].min(0) - 5
+    x1, y1 = P[11:].max(0) + 5
+    top = min(y0, P[0, 1] - 10)
+    rect(x0, top, x1 - x0, y1 - top, "none", col, 1.4, r=2, extra='stroke-dasharray="3 2"')
+    skeleton(P, rgb_col, 1.5)
 add("</g>")
-text(BX + 186, CY + 30, "MediaPipe Pose（heavy）", 14, INK, "bold")
-lines(BX + 186, CY + 56, ["CPU（XNNPACK）· VIDEO 模式", "每幀最多 4 人", "與 b 在不同執行緒平行執行"], 12.5, INK)
-text(BX + 14, CY + BH - 10, "輸出／人：33 關節 (u, v)、可見度、world landmarks", 12, rgb_col)
+text(BX + 186, CY + 30, "RTMPose-m（CoreML）", 14, INK, "bold")
+lines(BX + 186, CY + 56, ["每個人框各估一次，約 4 ms/人", "用上一幀人框，與 b 平行執行", "骨架直接屬於該框的 track ID"], 12.5, INK)
+text(BX + 14, CY + BH - 10, "輸出／人：Halpe26 26 關節 (u, v)、信心值（含腳趾、腳跟）", 12, rgb_col)
 
 # ================================================================ d D2C
 DY = CY + BH + 50
@@ -220,13 +225,13 @@ EX, EW = 800, 380
 panel(EX, TOP - 18, "e", "融合與 3D 提升")
 rect(EX, TOP, EW, 552, C["fuse"][1], r=10)
 
-text(EX + 16, TOP + 26, "① 骨架 ↔ 遮罩配對", 14, INK, "bold")
+text(EX + 16, TOP + 26, "① 骨架歸屬", 14, INK, "bold")
 fx, fy = EX + 16, TOP + 38
 rect(fx, fy, 120, 96, "#ffffff", RULE, r=4)
 P1 = body(fx + 60, fy + 54, 76)
 silhouette(P1, ID1, 9, 0.45)
 skeleton(P1, INK, 1.3)
-lines(EX + 150, TOP + 60, ["分數 = 可見關節落在遮罩內的比例", "≥ 0.3 才配對，分數高者優先", "沒配到遮罩的骨架 → 視為誤偵測"], 12.5, INK)
+lines(EX + 150, TOP + 60, ["RTMPose：骨架來自該人框，", "依 track ID 對到這一幀的遮罩", "（MediaPipe 模式：依關節落在", "遮罩內的比例配對）"], 12.5, INK)
 
 text(EX + 16, TOP + 168, "② 只取「自己遮罩內」的深度", 14, INK, "bold")
 ox, oy = EX + 16, TOP + 180
@@ -252,7 +257,7 @@ lines(lx, TOP + 252, [
 ], 12, INK, gap=1.55)
 
 text(EX + 16, TOP + 344, "③ 每人輸出（RGB 相機座標系，公尺）", 14, INK, "bold")
-rows = [(fuse_col, "有骨架", "33 關節 3D，標記實測／推估"),
+rows = [(fuse_col, "有骨架", "26 關節 3D，標記實測／推估"),
         (ID1, "只有遮罩", "遮罩深度中位數 → 3D 位置"),
         (MUTE, "都量不到", "距離前加 ≈，表示推估值")]
 for i, (col, k, v) in enumerate(rows):
@@ -260,7 +265,7 @@ for i, (col, k, v) in enumerate(rows):
     add(f'<circle cx="{EX + 24}" cy="{y - 4}" r="5" fill="{col}"/>')
     text(EX + 36, y, k, 12.5, INK, "bold")
     text(EX + 106, y, v, 12.5, INK)
-lines(EX + 16, TOP + 500, ["推估：把 MediaPipe 的 world landmarks 骨架", "平移到實測關節上，補齊量不到的關節"], 12, GREY, gap=1.5)
+lines(EX + 16, TOP + 500, ["推估：2D 位置照用，深度取這個人", "實測關節的中位數（人體所在深度平面）"], 12, GREY, gap=1.5)
 
 # ================================================================ f ID 與平滑
 FX, FW = 1225, 250
@@ -376,14 +381,14 @@ arrow([(FX + FW, TOP + 260), (GX - 4, TOP + 260)], out_col)
 # ================================================================ h 每幀時序
 HY = TOP + 630
 line(AX, HY - 30, W - 40, HY - 30, RULE)
-panel(AX, HY + 12, "h", "每幀時序（實測中位數 · Apple M5 · 1280×720）")
+panel(AX, HY + 12, "h", "每幀時序（單人實測中位數 · Apple M5 · 1280×720）")
 t = TIMINGS
 x0, scale, row_h = AX + 280, 24, 34
 y0 = HY + 50
 budget = 1000 / 30
 for i, (label, start, dur, col) in enumerate([
     ("執行緒 A · YOLO 分割 + 追蹤（GPU）", 0, t["segmentation"], rgb_col),
-    ("執行緒 B · MediaPipe 骨架（CPU）", 0, t["pose"], rgb_col),
+    ("執行緒 B · RTMPose 逐人（CoreML）", 0, t["pose"], rgb_col),
     ("主執行緒 · 深度對齊", 0, t["d2c"], depth_col),
     ("主執行緒 · 融合 + 3D + 平滑", t["segmentation"], t["fusion"], fuse_col),
 ]):
@@ -401,8 +406,7 @@ line(x0 + budget * scale, y0 - 10, x0 + budget * scale, yb, "#c0392b", 1.2, "4 3
 text(x0 + budget * scale + 4, y0 - 14, "30 fps 預算 33.3 ms", 11.5, "#c0392b")
 line(x0 + t["total"] * scale, y0 - 10, x0 + t["total"] * scale, yb, INK, 1.2, "2 2")
 text(x0 + t["total"] * scale - 4, y0 - 14, f"每幀 {t['total']:.1f} ms", 11.5, INK, "bold", "end")
-seq = t["segmentation"] + t["pose"] + t["d2c"] + t["fusion"]
-text(x0, yb + 50, f"A、B 平行執行；若依序執行需 ≈{seq:.0f} ms（約 {1000 / seq:.0f} fps），超過 30 fps 預算。", 12, GREY)
+text(x0, yb + 50, f"RTMPose 用上一幀的人框，才能與 YOLO 平行；三人時每幀 {t['total_3p']:.1f} ms（約 {1000 / t['total_3p']:.0f} fps）。", 12, GREY)
 
 cx_, cy_ = 1330, HY + 74
 for dx, dy, lab in ((56, 0, "x"), (0, 56, "y")):
@@ -419,7 +423,7 @@ for i, (col, lab) in enumerate(((rgb_col, "RGB / 2D 結果"), (depth_col, "深�
     arrow([(x, y), (x + 36, y)], col, 2)
     text(x + 46, y + 4, lab, 12.5, INK)
 
-text(AX, H - 20, "示意圖。人形取自 MediaPipe 對範例影像的實際輸出（第二人為鏡像複製）；One Euro 曲線為合成訊號經本專案濾波器的實際計算；"
+text(AX, H - 20, "示意圖。人形取自骨架模型對範例影像的實際輸出（第二人為鏡像複製）；One Euro 曲線為合成訊號經本專案濾波器的實際計算；"
      "時序為本機實測；ID 顏色與程式中一致。", 11, MUTE)
 
 add("</svg>")

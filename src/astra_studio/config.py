@@ -24,6 +24,7 @@ def load_config(path=None):
     with open(path or DEFAULT_CONFIG, "rb") as f:
         cfg = tomllib.load(f)
     cfg["pose"]["model"] = str(resolve(cfg["pose"]["model"]))
+    cfg["pose"]["rtm_model"] = str(resolve(cfg["pose"]["rtm_model"]))
     seg = cfg["segmentation"]
     seg["model"] = str(resolve(seg["model"]))
     seg["tracker"] = str(resolve(seg["tracker"]))

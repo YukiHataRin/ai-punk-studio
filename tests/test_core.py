@@ -8,9 +8,10 @@ import numpy as np
 from astra_studio.config import load_config
 from astra_studio.core.filters import OneEuroFilter
 from astra_studio.core.geometry import Intrinsics, rotation_matrix
+from astra_studio.core.skeleton_format import FORMATS, HALPE26
 from astra_studio.core.lift import lift_person
 from astra_studio.core.registration import DepthToRgb
-from astra_studio.core.fusion import associate, depth_mask, mask_centroid
+from astra_studio.core.fusion import associate, depth_mask, mask_centroid, match_previous_boxes
 from astra_studio.core.tracker import PoseTracker, SkeletonSmoother
 from astra_studio.core.types import PoseObservation, SegmentedPerson, TrackedPerson
 from astra_studio.render.colors import track_bgr
@@ -28,6 +29,18 @@ def standing_person(x=640, y=360, scale=1.0):
     pixels = (np.array([x, y]) + offsets * scale).astype(np.float32)
     world = np.c_[offsets / 300, np.zeros(33)].astype(np.float32)
     return PoseObservation(pixels, np.ones(33, np.float32), world)
+
+
+class SkeletonFormatTest(unittest.TestCase):
+    def test_formats_are_consistent(self):
+        for fmt in FORMATS.values():
+            idx = [i for c in fmt.connections for i in c] + [*fmt.shoulders, *fmt.hips, *fmt.ankles, fmt.head, *fmt.face]
+            self.assertTrue(all(0 <= i < fmt.size for i in idx), fmt.name)
+            self.assertEqual(len(set(fmt.names)), fmt.size, fmt.name)
+            self.assertNotIn(fmt.head, fmt.face)
+        self.assertEqual(HALPE26.size, 26)
+        self.assertEqual(HALPE26.names[HALPE26.hips[0]], "left_hip")
+        self.assertEqual(FORMATS["mediapipe33"].names[23], "left_hip")
 
 
 class GeometryTest(unittest.TestCase):
@@ -75,6 +88,21 @@ class LiftTest(unittest.TestCase):
         depth[rng.random(depth.shape) < 0.3] = 4500  # 30% 背景
         sk = lift_person(person, depth, 0.5, RGB_K, CFG["skeleton"])
         self.assertLess(float(sk.points[:, 2].max()), 2.2)
+
+    def test_rtmpose_fallback_puts_missing_joints_on_body_depth_plane(self):
+        """沒有 world landmarks（RTMPose）時，量不到的關節沿用 2D 位置、深度取實測關節中位數。"""
+        rng = np.random.default_rng(3)
+        pixels = (np.array([640, 360]) + rng.uniform(-60, 60, (26, 2))).astype(np.float32)
+        pose = PoseObservation(pixels, np.ones(26, np.float32), None, HALPE26)
+        depth = np.full((360, 640), 2000, np.uint16)
+        u, v = (pixels[9] * 0.5).astype(int)  # 左手腕附近挖一個沒有深度的洞
+        depth[v - 6:v + 7, u - 6:u + 7] = 0
+        sk = lift_person(pose, depth, 0.5, RGB_K, CFG["skeleton"])
+        self.assertFalse(sk.measured[9])
+        self.assertGreater(sk.measured.sum(), 20)
+        z = 2.0 + CFG["skeleton"]["joint_depth_offset"]
+        np.testing.assert_allclose(sk.points[9], RGB_K.backproject(*pixels[9], z), atol=1e-4)
+        self.assertEqual(sk.fmt, HALPE26)
 
     def test_no_depth_falls_back_to_world_landmarks(self):
         sk = lift_person(standing_person(), np.zeros((360, 640), np.uint16), 0.5, RGB_K, CFG["skeleton"])
@@ -156,6 +184,15 @@ class FusionTest(unittest.TestCase):
         self.assertFalse(TrackedPerson(1, pose=pose, skeleton=measured).distance_text().startswith("≈"))
         self.assertTrue(TrackedPerson(1, pose=pose, skeleton=estimated).distance_text().startswith("≈"))
         self.assertEqual(TrackedPerson(1).distance_text(), "")
+
+    def test_match_previous_boxes(self):
+        def seg(box, tid):
+            return SegmentedPerson(np.zeros((2, 2), bool), np.array(box, float), 0.9, tid)
+        now = [seg([500, 100, 600, 400], 7), seg([100, 100, 200, 400], 3), seg([900, 100, 1000, 400], None)]
+        prev = [(3, np.array([105, 98, 205, 402.])),      # 同 ID → 對到 index 1
+                (None, np.array([905, 100, 1005, 400.])),  # 沒 ID，靠 IoU → index 2
+                (8, np.array([0, 600, 50, 700.]))]         # 已離開畫面 → 不配
+        self.assertEqual(match_previous_boxes(prev, now), {0: 1, 1: 2})
 
     def test_mask_centroid(self):
         depth = np.full((360, 640), 2500, np.uint16)

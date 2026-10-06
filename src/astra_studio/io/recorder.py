@@ -4,7 +4,7 @@
     meta.json        相機內外參、設定、開始時間
     rgb.mp4          原始 RGB（不含疊圖），可重新跑整條管線
     depth/000000.png 16-bit 深度（mm，0 = 無效），與 rgb.mp4 的幀一一對應；沒有深度的幀不寫檔
-    skeleton.jsonl   每幀一行：時間、每人 ID / 距離 / 33 關節 3D 座標與是否實測
+    skeleton.jsonl   每幀一行：時間、每人 ID / 距離 / 關節 3D 座標與是否實測 / 骨架格式（halpe26 或 mediapipe33）
 
 寫檔在背景執行緒進行，不拖慢管線。
 """
@@ -32,6 +32,7 @@ def person_record(p):
            "distance_measured": p.distance_measured,
            "centroid": None if p.centroid is None else _r(p.centroid)}
     if p.skeleton is not None:
+        rec["format"] = p.skeleton.fmt.name
         rec["joints"] = _r(p.skeleton.points)
         rec["measured"] = p.skeleton.measured.astype(int).tolist()
     if p.pose is not None:

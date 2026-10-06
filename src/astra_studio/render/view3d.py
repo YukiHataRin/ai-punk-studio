@@ -3,7 +3,6 @@
 import cv2
 import numpy as np
 
-from ..perception.pose import CONNECTIONS
 from .colors import track_bgr
 
 
@@ -53,7 +52,7 @@ class Orbit3DView:
         img = np.full((self.size, self.size, 3), 24, np.uint8)
 
         # 地板高度跟著腳踝慢慢調整
-        ankles = [sk.points[j, 1] for sk in skeletons for j in (27, 28) if sk.measured[j]]
+        ankles = [sk.points[j, 1] for sk in skeletons for j in sk.fmt.ankles if sk.measured[j]]
         if ankles:
             self.floor_y = 0.9 * self.floor_y + 0.1 * (max(ankles) + 0.08)
         for k in np.arange(-2.5, 2.51, 0.5):
@@ -81,7 +80,7 @@ class Orbit3DView:
                     if ok[0]:
                         cv2.circle(img, tuple(uv[0]), 6, color, 2, cv2.LINE_AA)
                 continue
-            for a, b in CONNECTIONS:
+            for a, b in sk.fmt.connections:
                 both = sk.measured[a] and sk.measured[b]
                 self._line(img, sk.points[a], sk.points[b], color if both else dim, 2)
             uv, ok = self._project(sk.points)

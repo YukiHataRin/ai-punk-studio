@@ -10,7 +10,6 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from .filters import OneEuroFilter
-from .types import LEFT_HIP, RIGHT_HIP
 
 
 @dataclass
@@ -53,7 +52,8 @@ class SkeletonSmoother:
             pose = replace(pose, pixels=f.f2d(pose.pixels, t).astype(np.float32))
         if sk is not None:
             pts = f.f3d(sk.points, t).astype(np.float32)
-            sk = replace(sk, points=pts, distance=float(np.linalg.norm(pts[[LEFT_HIP, RIGHT_HIP]].mean(0))))
+            sk = replace(sk, points=pts)
+            sk = replace(sk, distance=float(np.linalg.norm(sk.hip_center)))
         if centroid is not None:
             centroid = f.fpos(centroid, t).astype(np.float32)
         return replace(person, pose=pose, skeleton=sk, centroid=centroid)
@@ -86,7 +86,7 @@ class PoseTracker:
         """回傳與 poses 等長的 ID 列表。"""
         # 先刪掉消失太久的追蹤，避免離開很久的人回來時搶回舊 ID
         self.tracks = [tr for tr in self.tracks if t - tr.last_seen < self.s["track_timeout"]]
-        centers = [p.pixels[[LEFT_HIP, RIGHT_HIP]].mean(0) for p in poses]
+        centers = [p.pixels[list(p.fmt.hips)].mean(0) for p in poses]
 
         # 依距離由近到遠貪婪配對
         pairs = sorted((np.linalg.norm(c - tr.center), i, k)

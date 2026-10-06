@@ -12,9 +12,8 @@ import mediapipe as mp
 import numpy as np
 from mediapipe.tasks.python import BaseOptions, vision
 
+from ..core.skeleton_format import MEDIAPIPE33
 from ..core.types import PoseObservation
-
-CONNECTIONS = [(c.start, c.end) for c in vision.PoseLandmarksConnections.POSE_LANDMARKS]
 
 
 class PoseEstimator:
@@ -54,6 +53,7 @@ class PoseEstimator:
             pixels=np.array([[lm.x * w, lm.y * h] for lm in lms], np.float32),
             visibility=np.array([lm.visibility or 0.0 for lm in lms], np.float32),
             world=np.array([[lm.x, lm.y, lm.z] for lm in wlms], np.float32),
+            fmt=MEDIAPIPE33,
         ) for lms, wlms in zip(result.pose_landmarks, result.pose_world_landmarks)]
 
     def close(self):

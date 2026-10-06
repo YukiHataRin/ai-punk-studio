@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
 )
 
 PIPELINE_KEYS = {"confidence", "tracking", "use_mask", "point_cloud", "min_cutoff_3d", "extrinsic_x"}
-POSE_MODELS = (("heavy（最穩）", "heavy"), ("full", "full"), ("lite（最快）", "lite"))
+POSE_MODELS = (("RTMPose-m（逐人，多人最穩）", "rtmpose"), ("MediaPipe heavy", "heavy"),
+               ("MediaPipe full", "full"), ("MediaPipe lite（最快）", "lite"))
 
 
 class Inspector(QFrame):
@@ -51,9 +52,12 @@ class Inspector(QFrame):
         self.slider("遮罩透明度", "opacity", 0.1, 0.9, seg["opacity"], "{:.2f}")
         self.check("BoT-SORT 追蹤 ID", "tracking", seg["tracking"])
 
-        self.section("骨架 · MediaPipe")
+        self.section("骨架")
         self.model = QComboBox()
-        current = cfg["pose"]["model"].rsplit("_", 1)[-1].removesuffix(".task")
+        if cfg["pose"].get("backend", "rtmpose") == "rtmpose":
+            current = "rtmpose"
+        else:
+            current = cfg["pose"]["model"].rsplit("_", 1)[-1].removesuffix(".task")
         for text, key in POSE_MODELS:
             self.model.addItem(text, key)
         keys = [k for _, k in POSE_MODELS]

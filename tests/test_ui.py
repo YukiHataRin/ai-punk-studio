@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
 from astra_studio.config import load_config
+from astra_studio.core.skeleton_format import MEDIAPIPE33
 from astra_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
 from astra_studio.pipeline.pipeline import FrameOutput
 from astra_studio.render.scene3d import build_scene, to_gl
@@ -74,7 +75,7 @@ class SceneTest(unittest.TestCase):
         scene = build_scene(fake_output().people, point_cloud=True)
         self.assertEqual(len(scene.lines) % 2, 0)
         self.assertEqual(len(scene.lines), len(scene.line_colors))
-        self.assertEqual(len(scene.joints), 2 * 22 + 1)  # 兩副骨架的身體關節 + 一個只有遮罩的人
+        self.assertEqual(len(scene.joints), 2 * len(MEDIAPIPE33.body) + 1)  # 兩副骨架的身體關節 + 一個只有遮罩的人
         self.assertEqual(len(scene.cloud), 66)
         self.assertEqual([tid for tid, _, _ in scene.labels], [1, 2, 9])
 
@@ -116,9 +117,11 @@ class MainWindowTest(unittest.TestCase):
     def test_settings_before_start_go_into_worker_config(self):
         w = self.make()
         w.inspector.use_mask_box.setChecked(False)
-        w.inspector.model.setCurrentIndex(2)  # lite
+        self.assertEqual(w.worker_config()["pose"]["backend"], "rtmpose")  # 預設
+        w.inspector.model.setCurrentIndex(3)  # MediaPipe lite
         cfg = w.worker_config()
         self.assertFalse(cfg["fusion"]["use_mask"])
+        self.assertEqual(cfg["pose"]["backend"], "mediapipe")
         self.assertTrue(cfg["pose"]["model"].endswith("pose_landmarker_lite.task"))
         self.assertTrue(CFG["fusion"]["use_mask"])  # 原設定不被修改
         w.close()

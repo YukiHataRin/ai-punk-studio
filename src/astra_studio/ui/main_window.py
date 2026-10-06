@@ -184,7 +184,12 @@ class MainWindow(QMainWindow):
 
     def worker_config(self):
         cfg = copy.deepcopy(self.cfg)
-        cfg["pose"]["model"] = str(resolve(f"models/pose_landmarker_{self.inspector.pose_model()}.task"))
+        choice = self.inspector.pose_model()
+        if choice == "rtmpose":
+            cfg["pose"]["backend"] = "rtmpose"
+        else:
+            cfg["pose"]["backend"] = "mediapipe"
+            cfg["pose"]["model"] = str(resolve(f"models/pose_landmarker_{choice}.task"))
         s = self.pipeline_settings
         cfg["segmentation"]["confidence"] = s.get("confidence", cfg["segmentation"]["confidence"])
         cfg["segmentation"]["tracking"] = s.get("tracking", cfg["segmentation"]["tracking"])

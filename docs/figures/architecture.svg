@@ -112,10 +112,11 @@
 <text x="516.0" y="163.5" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">人交錯、短暫遮擋仍保留 ID</text>
 <text x="344.0" y="220.0" font-size="12" fill="#2f6db5" font-weight="normal" text-anchor="start">輸出／人：遮罩 (H×W)、框、track ID</text>
 <text x="330.0" y="262.0" font-size="25" fill="#1f1f1f" font-weight="bold" text-anchor="start">c</text>
-<text x="356.0" y="260.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">多人姿態估計</text>
+<text x="356.0" y="260.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">逐人骨架估計（由上而下）</text>
 <rect x="330.0" y="280.0" width="410.0" height="160.0" rx="10" fill="#e8f0fa" stroke="none" stroke-width="1" />
 <g id="asset-pose-frame">
 <rect x="344.0" y="294.0" width="156.0" height="104.0" rx="4" fill="#dbe7f5" stroke="#b9cde6" stroke-width="1" />
+<rect x="346.2" y="308.2" width="100.7" height="84.7" rx="2" fill="none" stroke="#22D3EE" stroke-width="1.4" stroke-dasharray="3 2"/>
 <line x1="405.9" y1="325.5" x2="387.6" y2="326.8" stroke="#2f6db5" stroke-width="1.5" stroke-linecap="round"/>
 <line x1="405.9" y1="325.5" x2="421.8" y2="325.6" stroke="#2f6db5" stroke-width="1.5" stroke-linecap="round"/>
 <line x1="421.8" y1="325.6" x2="437.1" y2="324.0" stroke="#2f6db5" stroke-width="1.5" stroke-linecap="round"/>
@@ -164,6 +165,7 @@
 <circle cx="368.7" cy="387.9" r="1.7" fill="#2f6db5"/>
 <circle cx="441.9" cy="388.0" r="1.7" fill="#2f6db5"/>
 <circle cx="357.6" cy="387.7" r="1.7" fill="#2f6db5"/>
+<rect x="405.5" y="315.9" width="91.9" height="77.9" rx="2" fill="none" stroke="#FB7185" stroke-width="1.4" stroke-dasharray="3 2"/>
 <line x1="443.0" y1="332.4" x2="459.6" y2="333.7" stroke="#2f6db5" stroke-width="1.5" stroke-linecap="round"/>
 <line x1="443.0" y1="332.4" x2="428.7" y2="332.6" stroke="#2f6db5" stroke-width="1.5" stroke-linecap="round"/>
 <line x1="428.7" y1="332.6" x2="414.9" y2="331.1" stroke="#2f6db5" stroke-width="1.5" stroke-linecap="round"/>
@@ -213,11 +215,11 @@
 <circle cx="410.5" cy="388.9" r="1.7" fill="#2f6db5"/>
 <circle cx="486.7" cy="388.6" r="1.7" fill="#2f6db5"/>
 </g>
-<text x="516.0" y="310.0" font-size="14" fill="#1f1f1f" font-weight="bold" text-anchor="start">MediaPipe Pose（heavy）</text>
-<text x="516.0" y="336.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">CPU（XNNPACK）· VIDEO 模式</text>
-<text x="516.0" y="354.8" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">每幀最多 4 人</text>
-<text x="516.0" y="373.5" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">與 b 在不同執行緒平行執行</text>
-<text x="344.0" y="430.0" font-size="12" fill="#2f6db5" font-weight="normal" text-anchor="start">輸出／人：33 關節 (u, v)、可見度、world landmarks</text>
+<text x="516.0" y="310.0" font-size="14" fill="#1f1f1f" font-weight="bold" text-anchor="start">RTMPose-m（CoreML）</text>
+<text x="516.0" y="336.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">每個人框各估一次，約 4 ms/人</text>
+<text x="516.0" y="354.8" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">用上一幀人框，與 b 平行執行</text>
+<text x="516.0" y="373.5" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">骨架直接屬於該框的 track ID</text>
+<text x="344.0" y="430.0" font-size="12" fill="#2f6db5" font-weight="normal" text-anchor="start">輸出／人：Halpe26 26 關節 (u, v)、信心值（含腳趾、腳跟）</text>
 <text x="330.0" y="472.0" font-size="25" fill="#1f1f1f" font-weight="bold" text-anchor="start">d</text>
 <text x="356.0" y="470.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">深度對齊（D2C）</text>
 <rect x="330.0" y="490.0" width="410.0" height="132.0" rx="10" fill="#fcf1e4" stroke="none" stroke-width="1" />
@@ -234,7 +236,7 @@
 <text x="800.0" y="52.0" font-size="25" fill="#1f1f1f" font-weight="bold" text-anchor="start">e</text>
 <text x="826.0" y="50.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">融合與 3D 提升</text>
 <rect x="800.0" y="70.0" width="380.0" height="552.0" rx="10" fill="#e6f4ec" stroke="none" stroke-width="1" />
-<text x="816.0" y="96.0" font-size="14" fill="#1f1f1f" font-weight="bold" text-anchor="start">① 骨架 ↔ 遮罩配對</text>
+<text x="816.0" y="96.0" font-size="14" fill="#1f1f1f" font-weight="bold" text-anchor="start">① 骨架歸屬</text>
 <rect x="816.0" y="108.0" width="120.0" height="96.0" rx="4" fill="#ffffff" stroke="#d5d9de" stroke-width="1" />
 <g opacity="0.45">
 <line x1="885.2" y1="133.7" x2="868.2" y2="135.0" stroke="#22D3EE" stroke-width="9" stroke-linecap="round"/>
@@ -314,9 +316,10 @@
 <circle cx="850.7" cy="191.6" r="1.4" fill="#1f1f1f"/>
 <circle cx="918.6" cy="191.6" r="1.4" fill="#1f1f1f"/>
 <circle cx="840.4" cy="191.4" r="1.4" fill="#1f1f1f"/>
-<text x="950.0" y="130.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">分數 = 可見關節落在遮罩內的比例</text>
-<text x="950.0" y="148.8" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">≥ 0.3 才配對，分數高者優先</text>
-<text x="950.0" y="167.5" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">沒配到遮罩的骨架 → 視為誤偵測</text>
+<text x="950.0" y="130.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">RTMPose：骨架來自該人框，</text>
+<text x="950.0" y="148.8" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">依 track ID 對到這一幀的遮罩</text>
+<text x="950.0" y="167.5" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">（MediaPipe 模式：依關節落在</text>
+<text x="950.0" y="186.2" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">遮罩內的比例配對）</text>
 <text x="816.0" y="238.0" font-size="14" fill="#1f1f1f" font-weight="bold" text-anchor="start">② 只取「自己遮罩內」的深度</text>
 <rect x="816.0" y="250.0" width="160.0" height="130.0" rx="4" fill="url(#g-depth)" stroke="none" stroke-width="1" />
 <g opacity="0.9">
@@ -395,15 +398,15 @@
 <text x="816.0" y="414.0" font-size="14" fill="#1f1f1f" font-weight="bold" text-anchor="start">③ 每人輸出（RGB 相機座標系，公尺）</text>
 <circle cx="824" cy="438" r="5" fill="#2f8f5b"/>
 <text x="836.0" y="442.0" font-size="12.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">有骨架</text>
-<text x="906.0" y="442.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">33 關節 3D，標記實測／推估</text>
+<text x="906.0" y="442.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">26 關節 3D，標記實測／推估</text>
 <circle cx="824" cy="468" r="5" fill="#22D3EE"/>
 <text x="836.0" y="472.0" font-size="12.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">只有遮罩</text>
 <text x="906.0" y="472.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">遮罩深度中位數 → 3D 位置</text>
 <circle cx="824" cy="498" r="5" fill="#9aa0a6"/>
 <text x="836.0" y="502.0" font-size="12.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">都量不到</text>
 <text x="906.0" y="502.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">距離前加 ≈，表示推估值</text>
-<text x="816.0" y="570.0" font-size="12" fill="#5f6368" font-weight="normal" text-anchor="start">推估：把 MediaPipe 的 world landmarks 骨架</text>
-<text x="816.0" y="588.0" font-size="12" fill="#5f6368" font-weight="normal" text-anchor="start">平移到實測關節上，補齊量不到的關節</text>
+<text x="816.0" y="570.0" font-size="12" fill="#5f6368" font-weight="normal" text-anchor="start">推估：2D 位置照用，深度取這個人</text>
+<text x="816.0" y="588.0" font-size="12" fill="#5f6368" font-weight="normal" text-anchor="start">實測關節的中位數（人體所在深度平面）</text>
 <text x="1225.0" y="52.0" font-size="25" fill="#1f1f1f" font-weight="bold" text-anchor="start">f</text>
 <text x="1251.0" y="50.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">ID 與時間平滑</text>
 <rect x="1225.0" y="70.0" width="250.0" height="552.0" rx="10" fill="#f2f4f6" stroke="none" stroke-width="1" />
@@ -894,19 +897,19 @@
 <path d="M1475.0,330.0 L1511.0,330.0" fill="none" stroke="#7a5aa6" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#ah-7a5aa6)"/>
 <line x1="40.0" y1="670.0" x2="1760.0" y2="670.0" stroke="#d5d9de" stroke-width="1.0" stroke-linecap="round"/>
 <text x="40.0" y="712.0" font-size="25" fill="#1f1f1f" font-weight="bold" text-anchor="start">h</text>
-<text x="66.0" y="710.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">每幀時序（實測中位數 · Apple M5 · 1280×720）</text>
+<text x="66.0" y="710.0" font-size="16.5" fill="#1f1f1f" font-weight="bold" text-anchor="start">每幀時序（單人實測中位數 · Apple M5 · 1280×720）</text>
 <text x="308.0" y="765.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="end">執行緒 A · YOLO 分割 + 追蹤（GPU）</text>
-<rect x="320.0" y="752.0" width="607.2" height="18.0" rx="3" fill="#2f6db5" stroke="none" stroke-width="1" opacity="0.85"/>
-<text x="933.2" y="766.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">25.3 ms</text>
-<text x="308.0" y="799.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="end">執行緒 B · MediaPipe 骨架（CPU）</text>
-<rect x="320.0" y="786.0" width="525.6" height="18.0" rx="3" fill="#2f6db5" stroke="none" stroke-width="1" opacity="0.85"/>
-<text x="851.6" y="800.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">21.9 ms</text>
+<rect x="320.0" y="752.0" width="540.0" height="18.0" rx="3" fill="#2f6db5" stroke="none" stroke-width="1" opacity="0.85"/>
+<text x="866.0" y="766.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">22.5 ms</text>
+<text x="308.0" y="799.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="end">執行緒 B · RTMPose 逐人（CoreML）</text>
+<rect x="320.0" y="786.0" width="100.8" height="18.0" rx="3" fill="#2f6db5" stroke="none" stroke-width="1" opacity="0.85"/>
+<text x="426.8" y="800.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">4.2 ms</text>
 <text x="308.0" y="833.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="end">主執行緒 · 深度對齊</text>
-<rect x="320.0" y="820.0" width="38.4" height="18.0" rx="3" fill="#d9822b" stroke="none" stroke-width="1" opacity="0.85"/>
-<text x="364.4" y="834.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">1.6 ms</text>
+<rect x="320.0" y="820.0" width="45.6" height="18.0" rx="3" fill="#d9822b" stroke="none" stroke-width="1" opacity="0.85"/>
+<text x="371.6" y="834.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">1.9 ms</text>
 <text x="308.0" y="867.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="end">主執行緒 · 融合 + 3D + 平滑</text>
-<rect x="927.2" y="854.0" width="28.8" height="18.0" rx="3" fill="#2f8f5b" stroke="none" stroke-width="1" opacity="0.85"/>
-<text x="962.0" y="868.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">1.2 ms</text>
+<rect x="860.0" y="854.0" width="31.2" height="18.0" rx="3" fill="#2f8f5b" stroke="none" stroke-width="1" opacity="0.85"/>
+<text x="897.2" y="868.0" font-size="11.5" fill="#5f6368" font-weight="normal" text-anchor="start">1.3 ms</text>
 <line x1="320.0" y1="892.0" x2="1160.0" y2="892.0" stroke="#5f6368" stroke-width="1.0" stroke-linecap="round"/>
 <line x1="320.0" y1="892.0" x2="320.0" y2="897.0" stroke="#5f6368" stroke-width="1.0" stroke-linecap="round"/>
 <text x="320.0" y="910.0" font-size="11" fill="#5f6368" font-weight="normal" text-anchor="middle">0</text>
@@ -927,9 +930,9 @@
 <text x="1168.0" y="896.0" font-size="11" fill="#5f6368" font-weight="normal" text-anchor="start">ms</text>
 <line x1="1120.0" y1="740.0" x2="1120.0" y2="892.0" stroke="#c0392b" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="4 3"/>
 <text x="1124.0" y="736.0" font-size="11.5" fill="#c0392b" font-weight="normal" text-anchor="start">30 fps 預算 33.3 ms</text>
-<line x1="987.2" y1="740.0" x2="987.2" y2="892.0" stroke="#1f1f1f" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="2 2"/>
-<text x="983.2" y="736.0" font-size="11.5" fill="#1f1f1f" font-weight="bold" text-anchor="end">每幀 27.8 ms</text>
-<text x="320.0" y="942.0" font-size="12" fill="#5f6368" font-weight="normal" text-anchor="start">A、B 平行執行；若依序執行需 ≈50 ms（約 20 fps），超過 30 fps 預算。</text>
+<line x1="927.2" y1="740.0" x2="927.2" y2="892.0" stroke="#1f1f1f" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="2 2"/>
+<text x="923.2" y="736.0" font-size="11.5" fill="#1f1f1f" font-weight="bold" text-anchor="end">每幀 25.3 ms</text>
+<text x="320.0" y="942.0" font-size="12" fill="#5f6368" font-weight="normal" text-anchor="start">RTMPose 用上一幀的人框，才能與 YOLO 平行；三人時每幀 35.0 ms（約 29 fps）。</text>
 <path d="M1330.0,774.0 L1386.0,774.0" fill="none" stroke="#1f1f1f" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#ah-1f1f1f)"/>
 <text x="1394.0" y="779.0" font-size="13" fill="#1f1f1f" font-weight="normal" text-anchor="start" font-style="italic">x</text>
 <path d="M1330.0,774.0 L1330.0,830.0" fill="none" stroke="#1f1f1f" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#ah-1f1f1f)"/>
@@ -948,5 +951,5 @@
 <text x="1296.0" y="918.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">3D 結果</text>
 <path d="M1480.0,914.0 L1516.0,914.0" fill="none" stroke="#7a5aa6" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah-7a5aa6)"/>
 <text x="1526.0" y="918.0" font-size="12.5" fill="#1f1f1f" font-weight="normal" text-anchor="start">輸出</text>
-<text x="40.0" y="1010.0" font-size="11" fill="#9aa0a6" font-weight="normal" text-anchor="start">示意圖。人形取自 MediaPipe 對範例影像的實際輸出（第二人為鏡像複製）；One Euro 曲線為合成訊號經本專案濾波器的實際計算；時序為本機實測；ID 顏色與程式中一致。</text>
+<text x="40.0" y="1010.0" font-size="11" fill="#9aa0a6" font-weight="normal" text-anchor="start">示意圖。人形取自骨架模型對範例影像的實際輸出（第二人為鏡像複製）；One Euro 曲線為合成訊號經本專案濾波器的實際計算；時序為本機實測；ID 顏色與程式中一致。</text>
 </svg>

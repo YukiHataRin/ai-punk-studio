@@ -13,6 +13,8 @@ Log/
 # 模型與測試素材（由 scripts/download_models.sh 下載）
 models/*.pt
 models/*.task
+models/*.onnx
+models/*.zip
 tests/data/person.jpg
 
 # 使用者資料：錄影、截圖可能含人像與環境

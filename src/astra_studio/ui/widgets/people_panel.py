@@ -3,7 +3,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
 
-from ...core.types import NUM_LANDMARKS
 from ...render.colors import track_hex
 from ..theme import OK, WARN
 
@@ -32,7 +31,6 @@ class PersonCard(QFrame):
         self.note.setObjectName("cardNote")
         layout.addWidget(self.note)
         self.bar = QProgressBar()
-        self.bar.setRange(0, NUM_LANDMARKS)
         self.bar.setTextVisible(False)
         layout.addWidget(self.bar)
 
@@ -43,10 +41,12 @@ class PersonCard(QFrame):
             self.note.setText("僅遮罩（未偵測到骨架）")
             self.bar.setValue(0)
             return
+        total = len(person.skeleton.measured)
         measured = int(person.skeleton.measured.sum())
-        self.note.setText(f"實測關節 {measured}/{NUM_LANDMARKS}" + ("" if measured else "（全部推估）"))
+        self.note.setText(f"實測關節 {measured}/{total}" + ("" if measured else "（全部推估）"))
+        self.bar.setRange(0, total)
         self.bar.setValue(measured)
-        color = OK if measured >= NUM_LANDMARKS * 0.6 else WARN
+        color = OK if measured >= total * 0.6 else WARN
         self.bar.setStyleSheet(f"QProgressBar::chunk {{ background: {color}; border-radius: 2px; }}")
 
 

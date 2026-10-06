@@ -6,10 +6,8 @@
 import cv2
 import numpy as np
 
-from ..perception.pose import CONNECTIONS
 from .colors import track_bgr
 
-FACE = set(range(11))  # 0-10 為臉部點，畫小一點
 MIN_VIS = 0.3
 
 
@@ -48,13 +46,14 @@ def draw_skeleton(img, pose, skeleton, color):
     """實心點 = 深度實測，空心點 = 推估。"""
     px = pose.pixels.astype(int)
     vis = pose.visibility
-    for a, b in CONNECTIONS:
+    fmt = pose.fmt
+    for a, b in fmt.connections:
         if min(vis[a], vis[b]) > MIN_VIS:
             cv2.line(img, tuple(px[a]), tuple(px[b]), color, 2, cv2.LINE_AA)
     for j, p in enumerate(px):
         if vis[j] > MIN_VIS:
             filled = skeleton is not None and skeleton.measured[j]
-            cv2.circle(img, tuple(p), 3 if j in FACE else 5, color, -1 if filled else 2, cv2.LINE_AA)
+            cv2.circle(img, tuple(p), 3 if j in fmt.face else 5, color, -1 if filled else 2, cv2.LINE_AA)
 
 
 def draw_people(img, people, skeleton=True, labels=True):
@@ -65,7 +64,8 @@ def draw_people(img, people, skeleton=True, labels=True):
         if pose is not None:
             if skeleton:
                 draw_skeleton(img, pose, person.skeleton, color)
-            anchor = pose.pixels[0] if pose.visibility[0] > MIN_VIS else pose.pixels[[11, 12]].mean(0)
+            h = pose.fmt.head
+            anchor = pose.pixels[h] if pose.visibility[h] > MIN_VIS else pose.pixels[list(pose.fmt.shoulders)].mean(0)
             x, y = anchor[0] - 30, anchor[1] - 24
         elif person.segment is not None:
             x, y = person.segment.box[:2]

@@ -30,8 +30,12 @@ translation = [-0.025, 0.0, 0.0]
 rotation_deg = [0.0, 0.0, 0.0]
 
 [pose]
-model = "models/pose_landmarker_heavy.task"   # lite / full / heavy，heavy 最穩
-num_poses = 4                 # 最多同時偵測人數
+backend = "rtmpose"           # rtmpose：YOLO 人框逐人估計（多人穩定，推薦）；mediapipe：整張畫面多人
+rtm_model = "models/rtmpose-m_halpe26.onnx"   # RTMPose-m，Halpe26 26 點（含腳）
+rtm_provider = "coreml"       # coreml（約 4 ms/人）/ cpu（約 10 ms/人）
+pipelined = true              # 用上一幀的人框與 YOLO 平行估計（快，新出現的人晚一幀才有骨架）
+model = "models/pose_landmarker_heavy.task"   # MediaPipe 模型：lite / full / heavy
+num_poses = 4                 # 最多同時估計骨架的人數（RTMPose 取最大的幾個人框）
 delegate = "cpu"              # cpu / gpu。macOS 的 GPU delegate 會洩漏 Metal 記憶體，請保持 cpu
 min_detection_confidence = 0.5
 min_presence_confidence = 0.5

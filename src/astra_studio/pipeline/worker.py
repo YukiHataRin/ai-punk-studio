@@ -97,7 +97,7 @@ class PipelineWorker(QThread):
             self.status.emit("載入模型中…")
             pipeline = self.pipeline_factory(self.cfg, segmentation=self.segmentation)
             device = pipeline.segmenter.device.label if pipeline.segmenter else "—"
-            self.ready.emit(f"YOLO：{device} · MediaPipe：{pipeline.pose.device_label}")
+            self.ready.emit(f"YOLO：{device} · {pipeline.pose_label}")
             if self._stop.is_set():
                 return
 

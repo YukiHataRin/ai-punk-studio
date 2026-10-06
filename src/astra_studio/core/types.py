@@ -4,16 +4,16 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-NUM_LANDMARKS = 33
-LEFT_HIP, RIGHT_HIP = 23, 24
+from .skeleton_format import MEDIAPIPE33, SkeletonFormat
 
 
 @dataclass
 class PoseObservation:
-    """MediaPipe 對一個人的輸出。"""
-    pixels: np.ndarray      # (33, 2) RGB 影像像素座標
-    visibility: np.ndarray  # (33,)
-    world: np.ndarray       # (33, 3) world landmarks（公尺，以髖部中心為原點）
+    """骨架模型對一個人的 2D 輸出。K = fmt.size（MediaPipe 33、RTMPose Halpe26 26）。"""
+    pixels: np.ndarray                 # (K, 2) RGB 影像像素座標
+    visibility: np.ndarray             # (K,) 可見度／信心值
+    world: np.ndarray | None = None    # (K, 3) MediaPipe world landmarks（公尺，髖部為原點）；RTMPose 沒有
+    fmt: SkeletonFormat = MEDIAPIPE33
 
 
 @dataclass
@@ -33,9 +33,14 @@ class SegmentationResult:
 
 @dataclass
 class Skeleton3D:
-    points: np.ndarray    # (33, 3) RGB 相機座標系，公尺
-    measured: np.ndarray  # (33,) bool，True = 由深度實測，False = 推估
+    points: np.ndarray    # (K, 3) RGB 相機座標系，公尺
+    measured: np.ndarray  # (K,) bool，True = 由深度實測，False = 推估
     distance: float       # 髖部中心距離（公尺）
+    fmt: SkeletonFormat = MEDIAPIPE33
+
+    @property
+    def hip_center(self):
+        return self.points[list(self.fmt.hips)].mean(0)
 
 
 @dataclass
