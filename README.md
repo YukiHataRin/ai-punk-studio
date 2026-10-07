@@ -22,12 +22,19 @@ YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度�
 
 | 項目 | 說明 |
 |---|---|
-| 相機 | Orbbec Astra Pro（深度 PID 0x0403 + RGB「Astra Pro HD Camera」）|
-| 系統 | macOS（Apple Silicon 實測）；Linux / Windows 理論上可行但未測試 |
-| Python | **3.11**（pyorbbecsdk 1.3.2 在 macOS 只有 cp311 wheel）|
-| 其他 | conda（Miniconda / Miniforge）、約 2 GB 磁碟空間 |
+| 相機 | Orbbec Astra Pro（深度 PID 0x0403 + RGB「Astra Pro HD Camera」）；沒有 Astra 時任何 webcam 也能用（3D 為估計）|
+| Python | **3.11**（pyorbbecsdk 1.3.2 在 macOS 只有 cp311 wheel，三個平台統一用 3.11）|
+| 其他 | conda（Miniconda / Miniforge）、約 4–8 GB 磁碟空間（Linux / Windows 的 CUDA 版 PyTorch 較大）|
+
+| 平台 | 驗證狀態 |
+|---|---|
+| macOS（Apple Silicon）| 接 Astra Pro 與 USB webcam 實測：介面、headless、串流、錄製 |
+| Linux（Ubuntu 24.04，x86_64，RTX 5080）| 無攝影機：安裝、全部測試、headless 回放與 WebSocket 串流實測 |
+| Windows（x86_64）| GitHub Actions 自動測試（無攝影機）；接 Astra 尚未實測 |
 
 ## 安裝
+
+### macOS / Linux
 
 ```bash
 git clone https://github.com/YukiHataRin/astra-multi-person-skeleton.git
@@ -47,8 +54,35 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ./.conda/bin/python -m pip install -e . --no-deps
 
 # 5. 下載模型（YOLO11n-seg、RTMPose-m、MediaPipe Pose）與測試圖
-./scripts/download_models.sh
+./.conda/bin/python scripts/download_models.py
 ```
+
+### Windows（PowerShell）
+
+```powershell
+git clone https://github.com/YukiHataRin/astra-multi-person-skeleton.git
+cd astra-multi-person-skeleton
+conda create -p .\.conda python=3.11 -y
+$env:PYTHONNOUSERSITE = "1"
+.\.conda\python.exe -m pip install -r requirements.txt
+.\.conda\python.exe -m pip uninstall -y opencv-python
+.\.conda\python.exe -m pip install --force-reinstall --no-deps opencv-contrib-python==5.0.0.93
+.\.conda\python.exe -m pip install -e . --no-deps
+.\.conda\python.exe scripts\download_models.py
+```
+
+### NVIDIA GPU（Linux / Windows）
+
+- **YOLO**：Linux 從 PyPI 裝的 PyTorch 已含 CUDA；Windows 的 PyPI 版只有 CPU，請另外安裝 CUDA 版
+  （RTX 50 系列需要 CUDA 12.8 以上）：`pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128`
+- **RTMPose**（選用）：預設在 CPU 上執行即可（每人約 10 ms）；要用 GPU 時把 `onnxruntime` 換成 `onnxruntime-gpu`，`rtm_provider = "auto"` 會自動改用 CUDA
+
+### Astra Pro 驅動
+
+- **macOS**：不需要額外驅動
+- **Linux**：一般使用者存取 USB 需要 Orbbec 的 udev 規則（需要 sudo 安裝一次），
+  見 [pyorbbecsdk 說明](https://github.com/orbbec/pyorbbecsdk)；RGB 鏡頭需要使用者在 `video` 群組
+- **Windows**：需安裝 Orbbec 的相機驅動（OpenNI2 協定裝置），見 [Orbbec 官網](https://www.orbbec.com/developers/)
 
 ## 啟動
 
@@ -58,7 +92,8 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ./.conda/bin/python -m astra_studio
 ```
 
-或在 Finder 雙擊 `launch.command`。在右側「來源」選擇攝影機後按「**開始**」。
+或用啟動檔：macOS 在 Finder 雙擊 `launch.command`、Linux `./launch.sh`、Windows 雙擊 `launch.bat`
+（Windows 指令列請把 `./.conda/bin/python` 換成 `.\.conda\python.exe`）。在右側「來源」選擇攝影機後按「**開始**」。
 
 - 選 **Astra Pro HD Camera（RGB-D）**：深度實測的 3D 骨架
 - 選**其他攝影機（僅 RGB）**：沒有深度，3D 由身體尺寸估計（見下方「沒有深度時」）
@@ -229,7 +264,7 @@ JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`�
 ├── tests/             core / perception / ui / io 測試
 ├── tools/             ws_client.py、export_skeleton_csv.py、preview.py、make_architecture_figure.py
 ├── examples/          web_viewer.html（瀏覽器即時檢視串流）
-├── scripts/           download_models.sh
+├── scripts/           download_models.py（跨平台模型下載）
 └── docs/              PLAN.md（整合規劃）、figures/（架構圖）
 ```
 
@@ -240,7 +275,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 ```
 
 不需要相機。`test_core` / `test_ui` / `test_io` / `test_stream` 用合成資料（`test_stream` 含真實 WebSocket 連線與 headless 指令）；`test_perception` 用範例圖跑真實模型
-（需先執行 `scripts/download_models.sh`，否則自動略過），並包含 GPU 記憶體不成長的回歸測試。
+（需先執行 `scripts/download_models.py`，否則自動略過），並包含 GPU 記憶體不成長的回歸測試。
 
 ## 已知限制
 
@@ -252,6 +287,23 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 - **MediaPipe 模式固定用 CPU**：macOS 上 mediapipe 的 GPU delegate 每幀洩漏約 14 MB Metal 記憶體（0.10.35 與 1.0.1 皆然），30 fps 下不到一分鐘耗盡；1.0.1 的 CPU delegate 又會崩潰，因此固定 0.10.35 + CPU。
 - **MediaPipe 0.10.35 的使用資料回傳**（只在選用 MediaPipe 骨架時；預設的 RTMPose 模式不會載入 mediapipe）：此版本會嘗試連線 `play.googleapis.com`（log 中可見 `portable_clearcut_uploader`），官方未提供關閉方式（[google-ai-edge/mediapipe#6291](https://github.com/google-ai-edge/mediapipe/issues/6291)）。介意者可用防火牆（如 LuLu、Little Snitch）阻擋。
 - **Astra Pro 的 RGB 與深度不同步**：兩者是獨立裝置，快速動作時可能有一兩幀時間差。
+
+## 版本與更新
+
+- `main` 分支永遠是最新的穩定版；每個版本都有 git tag（`v0.1.0`、`v0.2.0`…），內容見 [CHANGELOG](CHANGELOG.md)
+- 切換到指定版本，或回到最新版：
+
+  ```bash
+  git fetch --tags
+  git checkout v0.4.0      # 切到 0.4.0（之後要重跑 pip install -e . --no-deps 讓版本號更新）
+  git checkout main        # 回到最新版
+  git pull
+  ```
+
+- 也可以在 GitHub 的 [Releases](https://github.com/YukiHataRin/astra-multi-person-skeleton/releases) 下載各版本的原始碼壓縮檔
+- `python -m astra_studio --version` 顯示目前版本
+- 開發新功能用獨立分支，GitHub Actions 在三個平台測試通過後再合併回 `main`
+- 所有平台用同一份程式碼，平台差異（攝影機後端、推論後端、字型）在程式中自動判斷，**不需要**為不同系統切換分支
 
 ## 致謝
 

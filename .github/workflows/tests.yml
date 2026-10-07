@@ -1,0 +1,52 @@
+# 在 Ubuntu / Windows / macOS 跑測試（CI 沒有攝影機與 GPU；需要相機的部分以合成資料與回放測試）
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONNOUSERSITE: "1"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Linux 系統套件（Qt offscreen 需要）
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+
+      - name: PyTorch CPU 版（CI 沒有 GPU，避免下載 CUDA 版）
+        if: runner.os != 'macOS'
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      - name: 安裝套件
+        run: |
+          pip install -r requirements.txt
+          pip uninstall -y opencv-python
+          pip install --force-reinstall --no-deps opencv-contrib-python==5.0.0.93
+          pip install -e . --no-deps
+
+      - name: 模型快取
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            tests/data
+          key: models-v1-${{ hashFiles('scripts/download_models.py') }}
+
+      - name: 下載模型
+        run: python scripts/download_models.py
+
+      - name: 測試
+        run: python -m unittest discover -s tests -v
