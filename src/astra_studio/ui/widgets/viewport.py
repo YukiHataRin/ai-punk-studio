@@ -9,7 +9,7 @@ from ..theme import BORDER, MUTED, TEXT
 
 
 class Viewport(QWidget):
-    def __init__(self, title="看見每一個人", hint="按「開始」接上 Astra Pro"):
+    def __init__(self, title="看見每一個人", hint="選擇攝影機後按「開始」"):
         super().__init__()
         self.image = QImage()
         self.title, self.hint = title, hint

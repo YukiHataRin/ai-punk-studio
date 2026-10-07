@@ -104,3 +104,29 @@ class RecorderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CameraTimeoutTest(unittest.TestCase):
+    def test_camera_without_frames_reports_error(self):
+        """攝影機能開啟卻不送影像（例如 MacBook 蓋上螢幕時的內建相機）時，要報錯而不是讓介面一直空等。"""
+        from unittest import mock
+        from astra_studio.sensors import astra
+
+        class DeadCapture:
+            def __init__(self, *args): pass
+            def set(self, *args): pass
+            def isOpened(self): return True
+            def read(self):
+                time.sleep(0.005)
+                return False, None
+            def release(self): pass
+
+        with mock.patch.object(astra.cv2, "VideoCapture", DeadCapture):
+            cam = astra.RgbCamera(1, 1280, 720)
+            cam.STARTUP_TIMEOUT = 0.2
+            cam.start()
+            deadline = time.monotonic() + 3
+            while cam.error is None and time.monotonic() < deadline:
+                time.sleep(0.02)
+            cam.stop()
+        self.assertIn("沒有送出影像", cam.error)

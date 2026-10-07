@@ -14,8 +14,11 @@ from PySide6.QtWidgets import (
 
 from ..config import PROJECT_ROOT, resolve
 from ..pipeline.worker import PipelineWorker
+from ..sensors.discovery import discover_cameras
+from ..sensors.webcam import intrinsics_from_fov
+from .camera_discovery import CameraDiscovery
 from ..render.overlay import draw_contours, draw_depth, draw_masks, draw_people
-from .theme import BAD, FAINT, OK
+from .theme import BAD, FAINT, OK, WARN
 from .widgets.inspector import PIPELINE_KEYS, Inspector
 from .widgets.people_panel import PeoplePanel
 from .widgets.viewport import Viewport
@@ -24,13 +27,18 @@ MODES = (("overlay", "疊圖"), ("split", "並排 3D"), ("depth", "深度"), ("s
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, cfg, segmentation=True, worker_factory=PipelineWorker, enable_3d=True, playback=None):
+    def __init__(self, cfg, segmentation=True, worker_factory=PipelineWorker, enable_3d=True, playback=None,
+                 camera_discover=discover_cameras, initial_camera=None):
         super().__init__()
         self.cfg = cfg
         self.segmentation = segmentation
         self.worker_factory = worker_factory
         self.worker = None
         self.playback = playback
+        self.camera_discover = camera_discover
+        self.initial_camera = initial_camera  # CLI --camera：名稱、裝置 ID 或編號
+        self.discovery = None
+        self.pending_start = False  # 按下開始時攝影機清單還沒好，等列舉完再開始
         self.recording_dir = None
         self.close_requested = False
         self.last_image = None
@@ -81,6 +89,7 @@ class MainWindow(QMainWindow):
         modes = QHBoxLayout()
         modes.setSpacing(0)
         self.mode_group = QButtonGroup(self)
+        self.mode_buttons = {}
         for key, text in MODES:
             button = QPushButton(text)
             button.setObjectName("mode")
@@ -88,6 +97,7 @@ class MainWindow(QMainWindow):
             button.setChecked(key == self.mode)
             button.clicked.connect(lambda _=False, k=key: self.set_mode(k))
             self.mode_group.addButton(button)
+            self.mode_buttons[key] = button
             modes.addWidget(button)
         modes.addStretch()
         self.view_hint = QLabel("")
@@ -117,8 +127,11 @@ class MainWindow(QMainWindow):
         self.inspector = Inspector(cfg)
         self.inspector.changed.connect(self.on_setting)
         self.inspector.start_clicked.connect(self.toggle)
+        self.inspector.refresh_clicked.connect(self.refresh_cameras)
         if playback:
-            self.inspector.source.setText(f"回放：{playback.name}")
+            self.inspector.set_playback(playback.name)
+        elif camera_discover is not None:
+            QTimer.singleShot(0, self.refresh_cameras)
         scroll = QScrollArea()
         scroll.setObjectName("inspectorScroll")
         scroll.setWidgetResizable(True)
@@ -170,8 +183,7 @@ class MainWindow(QMainWindow):
 
     def select_mode(self, mode):
         """程式切換模式時同步按鈕狀態。"""
-        for button, (key, _) in zip(self.mode_group.buttons(), MODES):
-            button.setChecked(key == mode)
+        self.mode_buttons[mode].setChecked(True)  # 按鈕群組為互斥，其餘自動取消
         self.set_mode(mode)
 
     def on_setting(self, key, value):
@@ -182,8 +194,42 @@ class MainWindow(QMainWindow):
         if key in self.display:
             self.display[key] = value
 
+    # ---- 攝影機 ----
+    def refresh_cameras(self):
+        if self.discovery or self.worker or self.camera_discover is None:
+            return
+        self.inspector.source.setText("尋找攝影機…")
+        self.inspector.refresh.setEnabled(False)
+        self.discovery = CameraDiscovery(self.camera_discover, self)
+        self.discovery.ready.connect(self.on_cameras)
+        self.discovery.failed.connect(self.inspector.source.setText)
+        self.discovery.finished.connect(self.on_discovery_finished)
+        self.discovery.start()
+
+    def on_cameras(self, cameras):
+        preferred, want = None, self.initial_camera
+        if want is not None:
+            preferred = next((c for c in cameras if want in (c.name, c.uid, str(c.index))), None)
+        self.inspector.set_cameras(cameras, preferred)
+
+    def on_discovery_finished(self):
+        discovery, self.discovery = self.discovery, None
+        discovery.deleteLater()
+        self.inspector.refresh.setEnabled(self.worker is None and not self.playback)
+        if self.close_requested:
+            self.close()
+        elif self.pending_start:
+            self.pending_start = False
+            self.start()
+
     def worker_config(self):
         cfg = copy.deepcopy(self.cfg)
+        cam = None if self.playback else self.inspector.selected_camera()
+        if cam is not None:
+            cfg["source"] = {"kind": "astra" if cam.is_astra else "rgb", "index": cam.index, "name": cam.name}
+            if not cam.is_astra:  # 一般攝影機沒有出廠內參，用水平視角推算
+                r = cfg["rgb"]
+                r.update(intrinsics_from_fov(r["width"], r["height"], cfg["webcam"]["hfov_deg"]))
         choice = self.inspector.pose_model()
         if choice == "rtmpose":
             cfg["pose"]["backend"] = "rtmpose"
@@ -208,6 +254,10 @@ class MainWindow(QMainWindow):
 
     def start(self):
         if self.worker:
+            return
+        if self.discovery is not None:  # 先等攝影機清單，才知道要開哪一台
+            self.pending_start = True
+            self.status.setText("尋找攝影機中，找到後自動開始…")
             return
         self.viewport.clear()
         self.status.setText("啟動中…")
@@ -268,11 +318,14 @@ class MainWindow(QMainWindow):
             self.close()
 
     # ---- 畫面更新 ----
-    def set_chips(self, rgb, depth, fps):
+    def set_chips(self, rgb, depth, fps, has_depth=True):
         def dot(ok):
             return f"<span style='color:{OK if ok else (BAD if self.worker else FAINT)}'>●</span>"
         self.chips["rgb"].setText(f"{dot(rgb)} RGB 1280×720")
-        self.chips["depth"].setText(f"{dot(depth)} 深度 640×480")
+        if has_depth:
+            self.chips["depth"].setText(f"{dot(depth)} 深度 640×480")
+        else:
+            self.chips["depth"].setText(f"<span style='color:{WARN}'>●</span> 無深度 · 3D 估計")
         self.chips["fps"].setText(f"{fps:.1f} fps" if fps else "— fps")
 
     def compose(self, out):
@@ -307,7 +360,7 @@ class MainWindow(QMainWindow):
             self.view3d.show_people(out.people, self.display["point_cloud"])
         self.people.show_people(out.people)
         self.inspector.show_metrics(out, metrics)
-        self.set_chips(True, metrics["depth"], metrics["fps"])
+        self.set_chips(True, metrics["depth"], metrics["fps"], metrics.get("has_depth", True))
         if metrics.get("recorded_frames") is not None and self.recording_dir:
             self.status.setText(f"● 錄製中 · {metrics['recorded_frames']} 幀 · {self.recording_dir}")
 
@@ -322,6 +375,10 @@ class MainWindow(QMainWindow):
             self.status.setText(f"已儲存：{path}")
 
     def closeEvent(self, event):
+        if self.discovery:
+            self.close_requested = True
+            event.ignore()
+            return
         if self.worker:
             self.close_requested = True
             self.stop()

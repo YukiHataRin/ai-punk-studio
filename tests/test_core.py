@@ -9,7 +9,7 @@ from astra_studio.config import load_config
 from astra_studio.core.filters import OneEuroFilter
 from astra_studio.core.geometry import Intrinsics, rotation_matrix
 from astra_studio.core.skeleton_format import FORMATS, HALPE26
-from astra_studio.core.lift import lift_person
+from astra_studio.core.lift import estimate_distance, lift_person
 from astra_studio.core.registration import DepthToRgb
 from astra_studio.core.fusion import associate, depth_mask, mask_centroid, match_previous_boxes
 from astra_studio.core.tracker import PoseTracker, SkeletonSmoother
@@ -103,6 +103,28 @@ class LiftTest(unittest.TestCase):
         z = 2.0 + CFG["skeleton"]["joint_depth_offset"]
         np.testing.assert_allclose(sk.points[9], RGB_K.backproject(*pixels[9], z), atol=1e-4)
         self.assertEqual(sk.fmt, HALPE26)
+
+    def test_no_depth_estimates_distance_from_torso_length(self):
+        """沒有深度時用軀幹長估距離：軀幹像素長 = fy × 0.5 m ÷ 距離。"""
+        z_true = 3.0
+        torso_px = RGB_K.fy * CFG["skeleton"]["est_torso_m"] / z_true
+        pixels = np.tile([640.0, 360.0], (26, 1)).astype(np.float32)
+        pixels[[5, 6], 1] = 300                      # 肩
+        pixels[[11, 12], 1] = 300 + torso_px          # 髖
+        pixels[[5, 11], 0], pixels[[6, 12], 0] = 600, 680
+        pose = PoseObservation(pixels, np.ones(26, np.float32), None, HALPE26)
+        self.assertAlmostEqual(estimate_distance(pose, RGB_K, CFG["skeleton"]), z_true, places=3)
+        sk = lift_person(pose, np.zeros((360, 640), np.uint16), 0.5, RGB_K, CFG["skeleton"])
+        self.assertFalse(sk.measured.any())
+        np.testing.assert_allclose(sk.points[:, 2], z_true, atol=1e-3)  # RTMPose：落在估計距離的平面上
+        hidden = PoseObservation(pixels, np.zeros(26, np.float32), None, HALPE26)
+        self.assertIsNone(estimate_distance(hidden, RGB_K, CFG["skeleton"]))
+
+    def test_fov_intrinsics(self):
+        from astra_studio.sensors.webcam import intrinsics_from_fov
+        k = intrinsics_from_fov(1280, 720, 90.0)
+        self.assertAlmostEqual(k["fx"], 640.0)
+        self.assertEqual((k["cx"], k["cy"]), (640.0, 360.0))
 
     def test_no_depth_falls_back_to_world_landmarks(self):
         sk = lift_person(standing_person(), np.zeros((360, 640), np.uint16), 0.5, RGB_K, CFG["skeleton"])

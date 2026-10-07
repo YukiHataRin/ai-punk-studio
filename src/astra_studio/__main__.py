@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--cv", action="store_true", help="改用 OpenCV 檢視器（開發用）")
     parser.add_argument("--list-cameras", action="store_true", help="列出相機名稱與裝置 ID")
     parser.add_argument("--play", metavar="DIR", help="回放錄製目錄（recordings/...），不需要相機")
+    parser.add_argument("--camera", metavar="NAME", help="預選攝影機（名稱、裝置 ID 或 --list-cameras 的編號）；非 Astra 時 3D 為估計")
     parser.add_argument("--screenshot", metavar="PATH", help=argparse.SUPPRESS)  # 開發用：延遲後存視窗截圖並結束
     parser.add_argument("--screenshot-delay", type=float, default=12, help=argparse.SUPPRESS)
     parser.add_argument("--view", choices=["overlay", "split", "depth", "skeleton", "contour"], help="初始畫面模式")
@@ -40,7 +41,8 @@ def main():
     app.setApplicationName("Astra Studio")
     apply_theme(app)
     from pathlib import Path
-    window = MainWindow(cfg, segmentation=not args.no_seg, playback=Path(args.play) if args.play else None)
+    window = MainWindow(cfg, segmentation=not args.no_seg, playback=Path(args.play) if args.play else None,
+                        initial_camera=args.camera)
     window.show()
     if args.view:
         window.select_mode(args.view)

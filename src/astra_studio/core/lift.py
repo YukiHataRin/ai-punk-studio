@@ -9,6 +9,10 @@
 
 基準深度 ref：有遮罩時取整個遮罩的深度中位數，否則取軀幹（肩、髖）周圍的中位數。
 
+整個人都量不到深度時（一般攝影機、或人在深度範圍外），用身體尺寸估計距離：
+針孔模型 距離 ≈ 焦距 × 實際長度 ÷ 像素長度，優先用軀幹長（肩中點到髖中點，轉身時幾乎不變），
+看不到髖時改用肩寬；兩者都看不到才用固定的 FALLBACK_DEPTH_M。
+
 量不到深度的關節（推估）：
 - 有 world landmarks（MediaPipe）：把 world 骨架平移到實測關節上補齊；
 - 沒有（RTMPose）：2D 位置照用，深度取這個人實測關節的中位數（沒有實測就用 ref），
@@ -20,7 +24,8 @@ import numpy as np
 from .geometry import Intrinsics
 from .types import PoseObservation, Skeleton3D
 
-FALLBACK_DEPTH_M = 2.5  # 整個人都量不到深度時的假設距離
+FALLBACK_DEPTH_M = 2.5  # 連身體尺寸都看不到時的假設距離
+MIN_EST_M, MAX_EST_M = 0.3, 15.0
 MIN_SAMPLES = 3
 
 
@@ -53,6 +58,23 @@ def reference_depth(reg_depth, uv, visible, win, torso, mask=None):
     return float(np.median(vals)) if vals.size else 0.0
 
 
+def estimate_distance(person: PoseObservation, rgb_k: Intrinsics, params):
+    """從身體尺寸估計人到相機的距離（公尺）；看不到軀幹或肩膀時回傳 None。"""
+    fmt, px = person.fmt, person.pixels
+    ok = person.visibility >= params["min_visibility"]
+    ls, rs = fmt.shoulders
+    lh, rh = fmt.hips
+    if ok[[ls, rs, lh, rh]].all():
+        torso_px = float(np.linalg.norm(px[[ls, rs]].mean(0) - px[[lh, rh]].mean(0)))
+        if torso_px > 5:
+            return float(np.clip(rgb_k.fy * params["est_torso_m"] / torso_px, MIN_EST_M, MAX_EST_M))
+    if ok[[ls, rs]].all():
+        shoulder_px = float(np.linalg.norm(px[ls] - px[rs]))
+        if shoulder_px > 5:
+            return float(np.clip(rgb_k.fx * params["est_shoulder_m"] / shoulder_px, MIN_EST_M, MAX_EST_M))
+    return None
+
+
 def lift_person(person: PoseObservation, reg_depth, reg_scale, rgb_k: Intrinsics, params, mask=None) -> Skeleton3D:
     """params：設定檔的 [skeleton] 區段；mask：與 reg_depth 同尺寸的 bool 遮罩（可省略）。"""
     n = len(person.pixels)
@@ -81,6 +103,8 @@ def lift_person(person: PoseObservation, reg_depth, reg_scale, rgb_k: Intrinsics
             measured[j] = True
 
     missing = ~measured
+    if not measured.any() and not ref:
+        ref = estimate_distance(person, rgb_k, params) or FALLBACK_DEPTH_M
     if missing.any():
         if person.world is not None:
             # 用實測關節與 world landmarks 的平均位移，把剩下的關節補到同一個座標系
@@ -88,10 +112,10 @@ def lift_person(person: PoseObservation, reg_depth, reg_scale, rgb_k: Intrinsics
                 offset = pts[measured].mean(0) - person.world[measured].mean(0)
             else:
                 hip_px = person.pixels[list(fmt.hips)].mean(0)
-                offset = rgb_k.backproject(*hip_px, ref or FALLBACK_DEPTH_M)
+                offset = rgb_k.backproject(*hip_px, ref)
             pts[missing] = person.world[missing] + offset
         else:
-            z = float(np.median(pts[measured, 2])) if measured.any() else (ref or FALLBACK_DEPTH_M)
+            z = float(np.median(pts[measured, 2])) if measured.any() else ref
             pts[missing] = rgb_k.backproject(person.pixels[missing, 0], person.pixels[missing, 1], z)
 
     sk = Skeleton3D(pts, measured, 0.0, fmt)

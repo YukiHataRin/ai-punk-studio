@@ -13,6 +13,7 @@ YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度�
 - **人體分割與穩定 ID**：YOLO11 像素級遮罩 + BoT-SORT（ReID），人交錯或短暫遮擋仍保留同一 ID
 - **遮罩內取深度**：關節深度只取自己遮罩內的值，前方的人或背景不會混進來；被擋住的關節改用推估
 - **即時介面**：疊圖／並排 3D／深度／僅骨架／僅輪廓五種模式、可旋轉 3D 視圖（含點雲）、每人卡片、即時調參
+- **任何攝影機都能用**：介面可選攝影機；選 Astra Pro 為深度實測，選一般 webcam 時 3D 改由身體尺寸估計
 - **錄製與回放**：RGB 影片 + 16-bit 深度 + 每幀 3D 骨架，可不接相機回放，骨架可轉 CSV
 - **約 30 fps**：分割（GPU / MPS）與骨架（CoreML）平行推論，單人每幀約 25 ms、三人約 35 ms（Apple M5、1280×720）
 
@@ -56,7 +57,11 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ./.conda/bin/python -m astra_studio
 ```
 
-或在 Finder 雙擊 `launch.command`。視窗開啟後按右側「**開始**」。
+或在 Finder 雙擊 `launch.command`。在右側「來源」選擇攝影機後按「**開始**」。
+
+- 選 **Astra Pro HD Camera（RGB-D）**：深度實測的 3D 骨架
+- 選**其他攝影機（僅 RGB）**：沒有深度，3D 由身體尺寸估計（見下方「沒有深度時」）
+- 插拔攝影機後按「重新整理攝影機」
 
 > **macOS 相機權限**：權限屬於「啟動程式的那個 App」。第一次執行時，請在「終端機」App
 > （或你常用的終端機）中啟動並允許相機存取；也可在「系統設定 → 隱私權與安全性 → 相機」中開啟。
@@ -69,6 +74,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ./.conda/bin/python -m astra_studio --no-seg               # 只跑骨架（不做分割）
 ./.conda/bin/python -m astra_studio --play recordings/20261006_112336   # 回放錄製，不需要相機
 ./.conda/bin/python -m astra_studio --list-cameras         # 列出相機
+./.conda/bin/python -m astra_studio --camera "j5 WebCam JVCU100"   # 預選攝影機（名稱、裝置 ID 或編號）
 ./.conda/bin/python -m astra_studio --cv                   # OpenCV 簡易檢視器（開發用）
 ```
 
@@ -85,6 +91,16 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 - 實心關節點 = 深度實測，空心 = 推估
 - 距離前有 **≈**（OpenCV 畫面為 `~`）表示這個人完全沒量到深度（太近 < 0.4 m、太遠或被遮擋），數值為推估
 - ID 由 BoT-SORT 產生並持續遞增（例如 ID 54），只代表「同一個人」，不是人數
+
+## 沒有深度時（一般攝影機）
+
+一般攝影機量不到深度，3D 改用估計值（距離前標 **≈**，上方顯示「無深度 · 3D 估計」）：
+
+- **距離**：針孔模型 `距離 ≈ 焦距 × 實際長度 ÷ 像素長度`，優先用軀幹長（肩中點到髖中點，成人平均 0.50 m，轉身時幾乎不變），看不到髖時改用肩寬（0.36 m）
+- **關節**：2D 位置照用，深度取估計距離（RTMPose）；MediaPipe 模式則用它的 world landmarks 保留身體前後形狀
+- **焦距**：一般攝影機沒有出廠校正，以 `[webcam] hfov_deg`（預設 70°）推算；換攝影機時可依規格調整
+
+身體尺寸因人而異，估計誤差約 10–20%；**只拍到頭、看不到肩膀或髖時誤差會很大**。同樣的估計也用在 Astra Pro 距離太近（< 0.4 m）量不到深度時。
 
 ## 錄製與匯出
 
@@ -114,6 +130,8 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 | 區段 | 參數 | 說明 |
 |---|---|---|
 | `[rgb]` `[depth]` | `fx` `fy` `cx` `cy` | 相機內參（目前依原廠 FOV 推算）|
+| `[webcam]` | `hfov_deg` | 一般攝影機的水平視角（推算焦距用）|
+| `[skeleton]` | `est_torso_m` `est_shoulder_m` | 沒有深度時估計距離用的身體尺寸 |
 | `[extrinsics]` | `translation` | 深度 → RGB 相機的平移；可在介面「深度」模式下用滑桿微調後填回 |
 | `[segmentation]` | `confidence` `tracking` | YOLO 信心值、是否啟用 BoT-SORT |
 | `[pose]` | `backend` `num_poses` | `rtmpose`（逐人，多人穩定）或 `mediapipe`；最多估計骨架的人數 |
@@ -140,7 +158,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ├── config/            default.toml（所有參數）、botsort_reid.yaml
 ├── src/astra_studio/
 │   ├── core/          純演算法（不依賴 Qt / torch / mediapipe）：對齊、融合、3D 提升、平滑
-│   ├── sensors/       Astra Pro 擷取、錄製回放、相機列舉
+│   ├── sensors/       Astra Pro 擷取、一般攝影機、錄製回放、相機列舉
 │   ├── perception/    YOLO11 分割 + BoT-SORT、RTMPose 逐人骨架、MediaPipe Pose、推論裝置選擇
 │   ├── pipeline/      單幀流程（分割 ∥ 骨架 ∥ 對齊 → 融合 → 平滑）、Qt 背景 worker
 │   ├── render/        2D 疊圖、3D 場景資料、ID 色票
@@ -165,7 +183,8 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 ## 已知限制
 
 - **對齊是估計值**：Astra Pro 的硬體深度對齊在 macOS 上會卡住，SDK 也讀不到出廠校正，內外參依原廠 FOV 推算，3D 位置可能有數公分誤差。可在「深度」模式用「對齊 x 平移」微調。
-- **深度有效範圍約 0.4–6 m**：太近或太遠時整個人改用推估（距離前標 ≈）。要量到全身，請站在相機前約 1–3 m。
+- **深度有效範圍約 0.4–6 m**：太近或太遠時整個人改用身體尺寸估計（距離前標 ≈）。要量到全身，請站在相機前約 1–3 m。
+- **MacBook 螢幕蓋上時內建相機無法使用**：macOS 仍會列出它，選了會在 6 秒後顯示「沒有送出影像」，請改接 USB 攝影機。
 - **新出現的人晚一幀才有骨架**：RTMPose 用上一幀的人框才能與 YOLO 平行；設 `[pose] pipelined = false` 可改為同一幀（三人時約 45 ms／幀）。
 - **RTMPose 的 CoreML 不能改變 batch 大小**，因此每人各跑一次（約 4 ms／人）；CoreML 出錯時自動改用 CPU（約 10 ms／人）。
 - **MediaPipe 模式固定用 CPU**：macOS 上 mediapipe 的 GPU delegate 每幀洩漏約 14 MB Metal 記憶體（0.10.35 與 1.0.1 皆然），30 fps 下不到一分鐘耗盡；1.0.1 的 CPU delegate 又會崩潰，因此固定 0.10.35 + CPU。

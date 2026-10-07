@@ -82,7 +82,7 @@ class SceneTest(unittest.TestCase):
 
 class MainWindowTest(unittest.TestCase):
     def make(self, enable_3d=False):
-        window = MainWindow(CFG, worker_factory=FakeWorker, enable_3d=enable_3d)
+        window = MainWindow(CFG, worker_factory=FakeWorker, enable_3d=enable_3d, camera_discover=None)
         window.show()
         return window
 
@@ -142,6 +142,57 @@ class MainWindowTest(unittest.TestCase):
         w.stop()
         w.close()
 
+    def test_camera_selection(self):
+        from astra_studio.sensors.discovery import Camera
+        astra = Camera("Astra Pro HD Camera", 0, 1200, "uid-astra")
+        mac = Camera("MacBook Pro相機", 1, 1200, "uid-mac")
+        w = self.make()
+        w.on_cameras([mac, astra])
+        self.assertEqual(w.inspector.selected_camera(), astra)  # 預設選 Astra
+        cfg = w.worker_config()
+        self.assertEqual(cfg["source"], {"kind": "astra", "index": 0, "name": astra.name})
+        self.assertEqual(cfg["rgb"]["fx"], CFG["rgb"]["fx"])
+        w.inspector.camera.setCurrentIndex(0)  # 選 MacBook 相機
+        self.assertIn("估計", w.inspector.source.text())
+        cfg = w.worker_config()
+        self.assertEqual(cfg["source"]["kind"], "rgb")
+        self.assertAlmostEqual(cfg["rgb"]["fx"], 1280 / (2 * np.tan(np.radians(CFG["webcam"]["hfov_deg"] / 2))), places=3)
+        self.assertEqual(CFG["rgb"]["fx"], 983.0)  # 原設定不被修改
+        w.close()
+
+    def test_start_waits_for_camera_discovery(self):
+        """回歸：--start 在攝影機列舉完成前觸發時，曾直接用預設的 Astra 開啟，而不是使用者選的攝影機。"""
+        import time
+        from astra_studio.sensors.discovery import Camera
+        cams = [Camera("Astra Pro HD Camera", 0, 1200, "a"), Camera("USB Webcam", 2, 1200, "b")]
+
+        def slow_discover():
+            time.sleep(0.3)
+            return cams
+        w = MainWindow(CFG, worker_factory=FakeWorker, enable_3d=False, camera_discover=slow_discover, initial_camera="2")
+        w.refresh_cameras()
+        w.start()  # 列舉還沒完成
+        self.assertIsNone(w.worker)
+        deadline = time.monotonic() + 5
+        while w.worker is None and time.monotonic() < deadline:
+            APP.processEvents()
+            time.sleep(0.01)
+        self.assertIsNotNone(w.worker)
+        self.assertEqual(w.worker.cfg["source"]["kind"], "rgb")
+        self.assertEqual(w.worker.cfg["source"]["index"], 2)
+        w.stop()
+        w.close()
+
+    def test_initial_camera_and_depth_chip(self):
+        from astra_studio.sensors.discovery import Camera
+        cams = [Camera("Astra Pro HD Camera", 0, 1200, "a"), Camera("USB Webcam", 2, 1200, "b")]
+        w = MainWindow(CFG, worker_factory=FakeWorker, enable_3d=False, camera_discover=None, initial_camera="2")
+        w.on_cameras(cams)
+        self.assertEqual(w.inspector.selected_camera().name, "USB Webcam")
+        w.set_chips(True, False, 30.0, has_depth=False)
+        self.assertIn("無深度", w.chips["depth"].text())
+        w.close()
+
     def test_modes_render(self):
         w = self.make()
         w.start()
@@ -153,6 +204,8 @@ class MainWindowTest(unittest.TestCase):
         w.set_mode("skeleton")
         self.assertEqual(int(w.compose(out)[0, 0].sum()), 0)  # 黑底
         w.select_mode("contour")
+        self.assertTrue(w.mode_buttons["contour"].isChecked())
+        self.assertFalse(w.mode_buttons["overlay"].isChecked())
         img = w.compose(out)
         self.assertEqual(int(img[400, 375].sum()), 0)   # 遮罩內部不填色
         self.assertGreater(int(img[400, 299:302].sum()), 0)  # 遮罩左邊界有輪廓線

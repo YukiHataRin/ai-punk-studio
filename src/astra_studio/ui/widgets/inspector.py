@@ -18,6 +18,7 @@ POSE_MODELS = (("RTMPose-m（逐人，多人最穩）", "rtmpose"), ("MediaPipe 
 class Inspector(QFrame):
     changed = Signal(str, object)
     start_clicked = Signal()
+    refresh_clicked = Signal()
 
     def __init__(self, cfg):
         super().__init__()
@@ -28,8 +29,16 @@ class Inspector(QFrame):
         self.box.setSpacing(6)
 
         self.section("來源")
-        self.source = QLabel("Orbbec Astra Pro（RGB + 深度）")
+        self.camera = QComboBox()
+        self.camera.setAccessibleName("攝影機")
+        self.camera.currentIndexChanged.connect(self._update_camera_hint)
+        self.box.addWidget(self.camera)
+        self.refresh = QPushButton("重新整理攝影機")
+        self.refresh.clicked.connect(self.refresh_clicked)
+        self.box.addWidget(self.refresh)
+        self.source = QLabel("尋找攝影機…")
         self.source.setObjectName("controlLabel")
+        self.source.setWordWrap(True)
         self.box.addWidget(self.source)
         self.start = QPushButton("開始")
         self.start.setObjectName("primary")
@@ -136,10 +145,42 @@ class Inspector(QFrame):
         setattr(self, f"{key}_slider", s)
         return s
 
+    # ---- 攝影機 ----
+    def set_cameras(self, cameras, preferred=None):
+        """cameras：list[Camera]。preferred：要選取的 Camera；沒指定時優先選 Astra Pro。"""
+        self.camera.blockSignals(True)
+        self.camera.clear()
+        for cam in cameras:
+            self.camera.addItem(f"{cam.name}（{'RGB-D' if cam.is_astra else '僅 RGB'}）", cam)
+        if cameras:
+            target = preferred or next((c for c in cameras if c.is_astra), cameras[0])
+            self.camera.setCurrentIndex(next((i for i, c in enumerate(cameras) if c.uid == target.uid), 0))
+        self.camera.blockSignals(False)
+        self._update_camera_hint()
+
+    def selected_camera(self):
+        return self.camera.currentData()
+
+    def _update_camera_hint(self, *_):
+        cam = self.selected_camera()
+        if cam is None:
+            self.source.setText("沒有偵測到攝影機")
+        elif cam.is_astra:
+            self.source.setText("RGB + 深度：3D 為實測")
+        else:
+            self.source.setText("沒有深度：3D 由身體尺寸估計（約略值）")
+
+    def set_playback(self, name):
+        self.camera.setEnabled(False)
+        self.refresh.setEnabled(False)
+        self.source.setText(f"回放：{name}")
+
     # ---- 狀態 ----
     def set_running(self, running):
         self.start.setText("停止" if running else "開始")
         self.model.setEnabled(not running)
+        self.camera.setEnabled(not running)
+        self.refresh.setEnabled(not running)
 
     def pose_model(self):
         return self.model.currentData()

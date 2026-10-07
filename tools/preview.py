@@ -69,12 +69,15 @@ def colorize(depth_mm, max_mm, cmap):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--rgb-index", type=int, default=0, help="RGB 相機編號（預設 0 = Astra Pro HD Camera）")
+    parser.add_argument("--rgb-index", type=int, default=None, help="RGB 相機編號（預設自動尋找 Astra Pro HD Camera）")
     parser.add_argument("--max-mm", type=int, default=4000, help="深度色彩映射的最大距離（mm）")
     parser.add_argument("--out", type=Path, default=Path("captures"), help="快照存放資料夾")
     args = parser.parse_args()
 
     pipe = open_depth()
+    if args.rgb_index is None:
+        from astra_studio.pipeline.worker import find_astra_rgb_index
+        args.rgb_index = find_astra_rgb_index(0)
     cap = open_rgb(args.rgb_index)
 
     win = "Astra Pro  |  RGB  |  Depth"

@@ -91,6 +91,26 @@ class PipelineWorker(QThread):
             self.recorder = SessionRecorder(self.cfg, with_images=options.get("with_images", True))
             self.recording.emit(str(self.recorder.dir), True)
 
+    def _open_source(self):
+        """依 cfg["source"] 開啟來源：astra = RGB + 深度；rgb = 只有 RGB（3D 改用估計）。
+        沒有指定時自動找 Astra Pro 的 RGB 鏡頭。Astra 的深度開不起來時退回只用 RGB。"""
+        if self.source_factory is not None:
+            return self.source_factory(self.cfg).start()
+        from ..sensors.astra import AstraSource, DepthUnavailable
+        from ..sensors.webcam import WebcamSource
+
+        src = self.cfg.get("source") or {"kind": "astra", "index": find_astra_rgb_index(self.cfg["rgb"]["index"])}
+        self.cfg["rgb"]["index"] = src["index"]
+        if src["kind"] != "astra":
+            self.status.emit(f"開啟 {src.get('name', '攝影機')}（僅 RGB）…")
+            return WebcamSource(self.cfg).start()
+        self.status.emit("開啟 Astra Pro…")
+        try:
+            return AstraSource(self.cfg).start()
+        except DepthUnavailable as error:
+            self.status.emit(f"深度相機無法開啟（{error}），改用僅 RGB，3D 為估計值")
+            return WebcamSource(self.cfg).start()
+
     def run(self):
         source = pipeline = None
         try:
@@ -101,14 +121,9 @@ class PipelineWorker(QThread):
             if self._stop.is_set():
                 return
 
-            self.status.emit("開啟 Astra Pro…")
-            if self.source_factory is None:
-                from ..sensors.astra import AstraSource
-                self.cfg["rgb"]["index"] = find_astra_rgb_index(self.cfg["rgb"]["index"])
-                source = AstraSource(self.cfg).start()
-            else:
-                source = self.source_factory(self.cfg).start()
-            self.status.emit("等待影像…")
+            source = self._open_source()
+            has_depth = getattr(source, "has_depth", True)
+            self.status.emit("等待影像…" if has_depth else "等待影像…（沒有深度，3D 為估計值）")
 
             last, frames, t0, fps, live = 0.0, 0, time.perf_counter(), 0.0, False
             while not self._stop.is_set():
@@ -135,7 +150,8 @@ class PipelineWorker(QThread):
                     self.status.emit("即時中")
                 rec = None if self.recorder is None else self.recorder.index
                 with self._lock:
-                    self._output = (out, {"fps": fps, "depth": depth is not None, "recorded_frames": rec})
+                    self._output = (out, {"fps": fps, "depth": depth is not None, "has_depth": has_depth,
+                                          "recorded_frames": rec})
         except Exception as error:
             self.failed.emit(str(error))
         finally:

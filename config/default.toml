@@ -24,6 +24,10 @@ cy = 240.0
 min_mm = 400
 max_mm = 6000
 
+[webcam]
+# 一般攝影機（沒有深度）沒有出廠內參，用水平視角推算焦距；MacBook 內建相機約 65–75°
+hfov_deg = 70.0
+
 [extrinsics]
 # 深度相機座標 → RGB 相機座標（公尺）。執行時可用 [ ] 微調 x 並看終端機輸出的數值。
 translation = [-0.025, 0.0, 0.0]
@@ -61,6 +65,8 @@ depth_window = 7              # 在關節周圍取深度中位數的視窗大小
 min_visibility = 0.5          # 低於此可見度的關節改用 MediaPipe world landmarks 補
 joint_depth_offset = 0.05     # 深度量到的是身體表面，關節中心再往後推的距離（公尺）
 depth_gate = 0.6              # 關節深度與軀幹深度差超過此值（公尺）視為取到背景，改用推估
+est_torso_m = 0.50            # 沒有深度時估計距離用：肩中點到髖中點的成人平均長度（公尺）
+est_shoulder_m = 0.36         # 同上，看不到髖時改用肩寬（兩肩關節間距）
 
 [smoothing]
 # One Euro Filter：min_cutoff 越小越穩但越黏；beta 越大，快速動作越跟手
