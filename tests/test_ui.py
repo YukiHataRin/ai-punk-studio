@@ -49,9 +49,10 @@ class FakeWorker(QObject):
 
     recording = Signal(str, bool)
 
-    def __init__(self, cfg, segmentation, parent=None, source_factory=None):
+    def __init__(self, cfg, segmentation, parent=None, source_factory=None, publisher=None):
         super().__init__(parent)
         self.cfg, self.updates, self.output = cfg, {}, (fake_output(), {"fps": 29.5, "depth": True})
+        self.runner = type("Runner", (), {"publisher": publisher})()
 
     def start(self):
         self.ready.emit("YOLO：測試 · MediaPipe：測試")
@@ -180,6 +181,23 @@ class MainWindowTest(unittest.TestCase):
         self.assertIsNotNone(w.worker)
         self.assertEqual(w.worker.cfg["source"]["kind"], "rgb")
         self.assertEqual(w.worker.cfg["source"]["index"], 2)
+        w.stop()
+        w.close()
+
+    def test_stream_toggle(self):
+        import copy
+        cfg = copy.deepcopy(CFG)
+        cfg["stream"]["port"] = 0  # 隨機可用埠
+        w = MainWindow(cfg, worker_factory=FakeWorker, enable_3d=False, camera_discover=None)
+        w.inspector.stream_enabled_box.setChecked(True)
+        self.assertIsNotNone(w.stream)
+        self.assertIn("ws://127.0.0.1:", w.inspector.stream_info.text())
+        w.start()
+        self.assertIs(w.worker.runner.publisher, w.stream)  # 開始時把串流交給擷取迴圈
+        w.inspector.stream_enabled_box.setChecked(False)
+        self.assertIsNone(w.stream)
+        self.assertIsNone(w.worker.runner.publisher)
+        self.assertEqual(w.inspector.stream_info.text(), "未啟用")
         w.stop()
         w.close()
 

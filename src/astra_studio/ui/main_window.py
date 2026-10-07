@@ -13,9 +13,9 @@ from PySide6.QtWidgets import (
 )
 
 from ..config import PROJECT_ROOT, resolve
+from ..io.stream import StreamServer
 from ..pipeline.worker import PipelineWorker
-from ..sensors.discovery import discover_cameras
-from ..sensors.webcam import intrinsics_from_fov
+from ..sensors.discovery import apply_camera, discover_cameras, select_camera
 from .camera_discovery import CameraDiscovery
 from ..render.overlay import draw_contours, draw_depth, draw_masks, draw_people
 from .theme import BAD, FAINT, OK, WARN
@@ -38,6 +38,8 @@ class MainWindow(QMainWindow):
         self.camera_discover = camera_discover
         self.initial_camera = initial_camera  # CLI --camera：名稱、裝置 ID 或編號
         self.discovery = None
+        self.stream = None  # WebSocket 伺服器（跨開始／停止保留）
+        self.last_has_depth = True
         self.pending_start = False  # 按下開始時攝影機清單還沒好，等列舉完再開始
         self.recording_dir = None
         self.close_requested = False
@@ -168,6 +170,8 @@ class MainWindow(QMainWindow):
         menu.addAction(close)
 
         self.set_mode(self.mode)
+        if cfg["stream"]["enabled"]:
+            self.set_streaming(True)
         self.timer = QTimer(self)
         self.timer.setInterval(16)
         self.timer.timeout.connect(self.refresh)
@@ -186,7 +190,40 @@ class MainWindow(QMainWindow):
         self.mode_buttons[mode].setChecked(True)  # 按鈕群組為互斥，其餘自動取消
         self.set_mode(mode)
 
+    # ---- WebSocket 串流 ----
+    def set_streaming(self, enabled):
+        if enabled and self.stream is None:
+            s = self.cfg["stream"]
+            try:
+                self.stream = StreamServer(s["host"], s["port"], s).start()
+            except RuntimeError as error:
+                self.status.setText(str(error))
+                self.inspector.stream_enabled_box.blockSignals(True)
+                self.inspector.stream_enabled_box.setChecked(False)
+                self.inspector.stream_enabled_box.blockSignals(False)
+                return
+            if self.worker:
+                self.stream.start_session(self.worker.cfg, self.last_has_depth)
+        elif not enabled and self.stream is not None:
+            stream, self.stream = self.stream, None
+            if self.worker:
+                self.worker.runner.publisher = None
+            stream.stop()
+        if self.worker:
+            self.worker.runner.publisher = self.stream
+        self.update_stream_info()
+
+    def update_stream_info(self):
+        if self.stream is None:
+            self.inspector.stream_info.setText("未啟用")
+        else:
+            lan = "" if self.stream.host in ("127.0.0.1", "localhost") else "（區域網路可連線）"
+            self.inspector.stream_info.setText(f"{self.stream.url}{lan} · {self.stream.client_count} 個用戶端")
+
     def on_setting(self, key, value):
+        if key == "stream_enabled":
+            self.set_streaming(value)
+            return
         if key in PIPELINE_KEYS:
             self.pipeline_settings[key] = value
             if self.worker:
@@ -207,9 +244,7 @@ class MainWindow(QMainWindow):
         self.discovery.start()
 
     def on_cameras(self, cameras):
-        preferred, want = None, self.initial_camera
-        if want is not None:
-            preferred = next((c for c in cameras if want in (c.name, c.uid, str(c.index))), None)
+        preferred = select_camera(cameras, self.initial_camera) if self.initial_camera is not None else None
         self.inspector.set_cameras(cameras, preferred)
 
     def on_discovery_finished(self):
@@ -226,10 +261,7 @@ class MainWindow(QMainWindow):
         cfg = copy.deepcopy(self.cfg)
         cam = None if self.playback else self.inspector.selected_camera()
         if cam is not None:
-            cfg["source"] = {"kind": "astra" if cam.is_astra else "rgb", "index": cam.index, "name": cam.name}
-            if not cam.is_astra:  # 一般攝影機沒有出廠內參，用水平視角推算
-                r = cfg["rgb"]
-                r.update(intrinsics_from_fov(r["width"], r["height"], cfg["webcam"]["hfov_deg"]))
+            apply_camera(cfg, cam)
         choice = self.inspector.pose_model()
         if choice == "rtmpose":
             cfg["pose"]["backend"] = "rtmpose"
@@ -265,7 +297,8 @@ class MainWindow(QMainWindow):
         if self.playback:
             from ..sensors.playback import PlaybackSource
             source_factory = lambda cfg, path=self.playback: PlaybackSource(path)  # noqa: E731
-        self.worker = self.worker_factory(self.worker_config(), self.segmentation, self, source_factory=source_factory)
+        self.worker = self.worker_factory(self.worker_config(), self.segmentation, self,
+                                          source_factory=source_factory, publisher=self.stream)
         self.worker.status.connect(self.status.setText)
         self.worker.recording.connect(self.on_recording)
         self.worker.ready.connect(self.inspector.device.setText)
@@ -360,7 +393,10 @@ class MainWindow(QMainWindow):
             self.view3d.show_people(out.people, self.display["point_cloud"])
         self.people.show_people(out.people)
         self.inspector.show_metrics(out, metrics)
-        self.set_chips(True, metrics["depth"], metrics["fps"], metrics.get("has_depth", True))
+        self.last_has_depth = metrics.get("has_depth", True)
+        self.set_chips(True, metrics["depth"], metrics["fps"], self.last_has_depth)
+        if self.stream is not None:
+            self.update_stream_info()
         if metrics.get("recorded_frames") is not None and self.recording_dir:
             self.status.setText(f"● 錄製中 · {metrics['recorded_frames']} 幀 · {self.recording_dir}")
 
@@ -384,4 +420,5 @@ class MainWindow(QMainWindow):
             self.stop()
             event.ignore()
         else:
+            self.set_streaming(False)
             event.accept()

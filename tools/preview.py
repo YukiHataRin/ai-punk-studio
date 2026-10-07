@@ -76,7 +76,7 @@ def main():
 
     pipe = open_depth()
     if args.rgb_index is None:
-        from astra_studio.pipeline.worker import find_astra_rgb_index
+        from astra_studio.sensors.discovery import find_astra_rgb_index
         args.rgb_index = find_astra_rgb_index(0)
     cap = open_rgb(args.rgb_index)
 

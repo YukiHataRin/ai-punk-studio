@@ -77,6 +77,16 @@ beta_3d = 0.6
 match_distance = 0.15         # 跨影格配對同一人的最大位移（佔畫面寬度比例）
 track_timeout = 0.5           # 消失超過幾秒就刪除該人的追蹤
 
+[stream]
+# WebSocket 即時串流（headless 模式預設開啟；介面中可在右側「串流」開關）
+enabled = false               # 介面啟動時是否自動開啟
+host = "127.0.0.1"            # 只允許本機；要讓區域網路其他裝置連線改成 "0.0.0.0"（無加密、無驗證）
+port = 8765
+max_fps = 30                  # 推送上限
+contours = true               # 每人附上遮罩外輪廓多邊形
+contour_epsilon = 2.0         # 輪廓簡化程度（像素），越大點越少
+pixels = true                 # 附上 2D 關節像素座標與信心值
+
 [view]
 rgb_display_width = 960       # 左側 2D 畫面顯示寬度
 panel_size = 540              # 右側 3D 畫面邊長

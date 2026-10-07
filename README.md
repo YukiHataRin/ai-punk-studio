@@ -14,6 +14,7 @@ YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度�
 - **遮罩內取深度**：關節深度只取自己遮罩內的值，前方的人或背景不會混進來；被擋住的關節改用推估
 - **即時介面**：疊圖／並排 3D／深度／僅骨架／僅輪廓五種模式、可旋轉 3D 視圖（含點雲）、每人卡片、即時調參
 - **任何攝影機都能用**：介面可選攝影機；選 Astra Pro 為深度實測，選一般 webcam 時 3D 改由身體尺寸估計
+- **WebSocket 串流與 headless 伺服器**：每幀推送 ID、距離、3D／2D 關節與輪廓；可不開視窗只當伺服器
 - **錄製與回放**：RGB 影片 + 16-bit 深度 + 每幀 3D 骨架，可不接相機回放，骨架可轉 CSV
 - **約 30 fps**：分割（GPU / MPS）與骨架（CoreML）平行推論，單人每幀約 25 ms、三人約 35 ms（Apple M5、1280×720）
 
@@ -92,6 +93,65 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 - 距離前有 **≈**（OpenCV 畫面為 `~`）表示這個人完全沒量到深度（太近 < 0.4 m、太遠或被遮擋），數值為推估
 - ID 由 BoT-SORT 產生並持續遞增（例如 ID 54），只代表「同一個人」，不是人數
 
+## WebSocket 串流與 Headless 伺服器
+
+### Headless（不開視窗的純伺服器）
+
+```bash
+./.conda/bin/python -m astra_studio --headless                          # 自動選 Astra Pro，ws://127.0.0.1:8765
+./.conda/bin/python -m astra_studio --headless --camera "j5 WebCam JVCU100"
+./.conda/bin/python -m astra_studio --headless --ws-host 0.0.0.0        # 開放區域網路其他裝置連線
+./.conda/bin/python -m astra_studio --headless --record                 # 同時錄製
+./.conda/bin/python -m astra_studio --headless --play recordings/<時間>   # 用錄影當來源，不需要相機
+```
+
+終端機每 5 秒印出 fps、人數、用戶端數；`Ctrl-C` 結束（`--duration 秒數` 可自動結束）。
+headless 一樣需要相機權限：請從已允許相機的終端機啟動。
+
+### 介面中串流
+
+右側「串流（WebSocket）」勾選「啟用」，或啟動時加 `--ws`。會顯示位址與目前連線的用戶端數，開始／停止擷取時不會中斷。
+
+### 用戶端範例
+
+```bash
+./.conda/bin/python tools/ws_client.py                  # 終端機印出每幀摘要
+./.conda/bin/python tools/ws_client.py --json > s.jsonl # 存原始訊息
+```
+
+瀏覽器：用任何靜態伺服器開啟 `examples/web_viewer.html`（例如在 `examples/` 執行 `python3 -m http.server`，
+再開 `http://127.0.0.1:8000/web_viewer.html`），會即時畫出輪廓、2D 骨架與俯視位置圖。
+
+### 協定
+
+JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`（每個用戶端只保留一則待送的最新幀，傳送跟不上時跳過舊幀）。
+
+```jsonc
+// hello：連線時與來源切換時
+{"type": "hello", "protocol": 1, "image": {"width": 1280, "height": 720},
+ "intrinsics": {"fx": 983.0, "fy": 984.0, "cx": 640.0, "cy": 360.0}, "has_depth": true,
+ "formats": {"halpe26": {"names": ["nose", ...], "connections": [[0, 1], ...]}, "mediapipe33": {...}}}
+
+// frame：每幀
+{"type": "frame", "frame": 128, "t": 4.27, "fps": 30.1, "has_depth": true,
+ "people": [{
+   "id": 3,                          // BoT-SORT 追蹤 ID
+   "distance": 2.14, "distance_measured": true,   // false 時為估計值（介面顯示 ≈）
+   "centroid": [0.12, -0.05, 2.20],  // 遮罩深度換算的 3D 位置（公尺），沒有深度時為 null
+   "format": "halpe26",
+   "joints": [[x, y, z], ...],       // 3D 關節（公尺，RGB 相機座標系：x 右、y 下、z 前）
+   "measured": [1, 1, 0, ...],       // 每個關節是否深度實測
+   "pixels": [[u, v], ...], "visibility": [0.98, ...],   // 2D 關節與信心值
+   "box": [x1, y1, x2, y2],
+   "contour": [[[u, v], ...]]        // 遮罩外輪廓多邊形（像素），可能有多段
+ }]}
+```
+
+用戶端可送 `{"type": "ping"}`（回 `pong`）或 `{"type": "hello"}`（重送 hello）。
+`[stream]` 設定可關閉輪廓或 2D 資料、調整推送上限與輪廓簡化程度。
+
+> **安全性**：預設只綁 `127.0.0.1`。改成 `0.0.0.0` 後同一網路的任何裝置都能連線讀取資料，連線**沒有加密也沒有驗證**，請只在可信任的網路使用。
+
 ## 沒有深度時（一般攝影機）
 
 一般攝影機量不到深度，3D 改用估計值（距離前標 **≈**，上方顯示「無深度 · 3D 估計」）：
@@ -130,6 +190,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 | 區段 | 參數 | 說明 |
 |---|---|---|
 | `[rgb]` `[depth]` | `fx` `fy` `cx` `cy` | 相機內參（目前依原廠 FOV 推算）|
+| `[stream]` | `host` `port` `contours` `max_fps` | WebSocket 綁定位址、埠號、是否附輪廓、推送上限 |
 | `[webcam]` | `hfov_deg` | 一般攝影機的水平視角（推算焦距用）|
 | `[skeleton]` | `est_torso_m` `est_shoulder_m` | 沒有深度時估計距離用的身體尺寸 |
 | `[extrinsics]` | `translation` | 深度 → RGB 相機的平移；可在介面「深度」模式下用滑桿微調後填回 |
@@ -160,13 +221,14 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 │   ├── core/          純演算法（不依賴 Qt / torch / mediapipe）：對齊、融合、3D 提升、平滑
 │   ├── sensors/       Astra Pro 擷取、一般攝影機、錄製回放、相機列舉
 │   ├── perception/    YOLO11 分割 + BoT-SORT、RTMPose 逐人骨架、MediaPipe Pose、推論裝置選擇
-│   ├── pipeline/      單幀流程（分割 ∥ 骨架 ∥ 對齊 → 融合 → 平滑）、Qt 背景 worker
+│   ├── pipeline/      單幀流程、擷取迴圈 runner（不依賴 Qt）、Qt 背景 worker
 │   ├── render/        2D 疊圖、3D 場景資料、ID 色票
-│   ├── io/            錄製
+│   ├── io/            錄製、WebSocket 串流伺服器
 │   ├── ui/            PySide6 介面（主視窗、3D 視圖、人物卡片、設定面板）
-│   └── apps/          OpenCV 簡易檢視器
+│   └── apps/          headless 伺服器、OpenCV 簡易檢視器
 ├── tests/             core / perception / ui / io 測試
-├── tools/             export_skeleton_csv.py、preview.py（原始畫面）、make_architecture_figure.py
+├── tools/             ws_client.py、export_skeleton_csv.py、preview.py、make_architecture_figure.py
+├── examples/          web_viewer.html（瀏覽器即時檢視串流）
 ├── scripts/           download_models.sh
 └── docs/              PLAN.md（整合規劃）、figures/（架構圖）
 ```
@@ -177,7 +239,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 ```
 
-不需要相機。`test_core` / `test_ui` / `test_io` 用合成資料；`test_perception` 用範例圖跑真實模型
+不需要相機。`test_core` / `test_ui` / `test_io` / `test_stream` 用合成資料（`test_stream` 含真實 WebSocket 連線與 headless 指令）；`test_perception` 用範例圖跑真實模型
 （需先執行 `scripts/download_models.sh`，否則自動略過），並包含 GPU 記憶體不成長的回歸測試。
 
 ## 已知限制
@@ -199,6 +261,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 - [Ultralytics](https://github.com/ultralytics/ultralytics)：YOLO11 實例分割與追蹤整合
 - [BoT-SORT](https://github.com/NirAharon/BoT-SORT)：多目標追蹤與 ReID
 - [PySide6](https://doc.qt.io/qtforpython-6/)、[qt-material](https://github.com/UN-GCPDS/qt-material)、[pyqtgraph](https://github.com/pyqtgraph/pyqtgraph)：介面與 3D 視圖
+- [websockets](https://github.com/python-websockets/websockets)：WebSocket 串流伺服器（BSD-3-Clause）
 - [Human Mask Studio](https://github.com/YukiHataRin/human_semantic_segmentation)：分割引擎、相機列舉與介面風格的來源
 - One Euro Filter：Casiez, Roussel & Vogel, *1€ Filter: A Simple Speed-based Low-pass Filter for Noisy Input in Interactive Systems*, CHI 2012
 

@@ -79,6 +79,14 @@ class Inspector(QFrame):
         self.check("只取自己遮罩內的深度", "use_mask", cfg["fusion"]["use_mask"])
         self.slider("對齊 x 平移", "extrinsic_x", -0.06, 0.02, cfg["extrinsics"]["translation"][0], "{:+.0f} mm", 1000)
 
+        self.section("串流（WebSocket）")
+        self.check("啟用 WebSocket 串流", "stream_enabled", cfg["stream"]["enabled"])
+        self.stream_info = QLabel("未啟用")
+        self.stream_info.setObjectName("controlLabel")
+        self.stream_info.setWordWrap(True)
+        self.stream_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.box.addWidget(self.stream_info)
+
         self.section("錄製")
         self.check("包含 RGB-D 影像（可回放、檔案較大）", "record_images", True)
         self.label("只勾骨架時僅寫 skeleton.jsonl")

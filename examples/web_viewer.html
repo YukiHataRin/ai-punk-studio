@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astra Stream Viewer</title>
+<style>
+  :root { --bg: #0c151d; --panel: #14212b; --border: #263943; --text: #edf5f7; --muted: #96aab6; --accent: #41dfc8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; }
+  header { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0 12px 0 0; }
+  input { flex: 1; min-width: 200px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+  button { background: var(--accent); color: var(--bg); border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; }
+  #status { color: var(--muted); width: 100%; }
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; padding: 0 16px 16px; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+  figcaption { color: var(--muted); font-size: 12px; padding: 4px 2px 0; }
+  canvas { width: 100%; display: block; background: #101b23; border-radius: 6px; }
+  #people { grid-column: 1 / -1; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Astra Stream Viewer</h1>
+  <input id="url" value="ws://127.0.0.1:8765" aria-label="WebSocket 位址">
+  <button id="connect">連線</button>
+  <div id="status">尚未連線</div>
+</header>
+<main>
+  <figure><canvas id="front" width="1280" height="720"></canvas><figcaption>輪廓與 2D 骨架（RGB 影像座標）</figcaption></figure>
+  <figure><canvas id="top" width="600" height="600"></canvas><figcaption>俯視圖：x（左右）× z（距離），每格 0.5 m</figcaption></figure>
+  <div id="people"></div>
+</main>
+<script>
+const COLORS = ["#22D3EE", "#FB7185", "#A78BFA", "#FBBF24", "#34D399", "#F97316", "#60A5FA", "#E879F9"];
+const color = id => COLORS[(id - 1) % COLORS.length];
+let ws = null, hello = null;
+const $ = id => document.getElementById(id);
+
+function connect() {
+  if (ws) ws.close();
+  ws = new WebSocket($("url").value);
+  $("status").textContent = "連線中…";
+  ws.onopen = () => { $("status").textContent = "已連線，等待資料…"; };
+  ws.onclose = () => { $("status").textContent = "連線已關閉"; };
+  ws.onerror = () => { $("status").textContent = "無法連線，請確認伺服器已啟動（--headless 或介面中開啟串流）"; };
+  ws.onmessage = ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === "hello") {
+      hello = msg;
+      $("front").width = msg.image.width; $("front").height = msg.image.height;
+      $("status").textContent = `已連線：${msg.image.width}×${msg.image.height}，` + (msg.has_depth ? "有深度" : "沒有深度（3D 為估計）");
+    } else if (msg.type === "frame" && hello) {
+      drawFront(msg); drawTop(msg);
+      $("people").textContent = `#${msg.frame} · ${msg.fps} fps · ` + (msg.people.map(p =>
+        `ID ${p.id} ${p.distance == null ? "—" : (p.distance_measured ? "" : "≈") + p.distance.toFixed(2) + " m"}`).join("、") || "沒有人");
+    }
+  };
+}
+
+function drawFront(msg) {
+  const c = $("front"), g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  for (const p of msg.people) {
+    const col = color(p.id);
+    g.lineWidth = 3; g.strokeStyle = col; g.fillStyle = col + "33";
+    for (const poly of p.contour || []) {
+      g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); g.stroke();
+    }
+    if (p.pixels && p.format) {
+      const conn = hello.formats[p.format].connections;
+      g.lineWidth = 4; g.strokeStyle = col;
+      for (const [a, b] of conn) {
+        if (p.visibility[a] < 0.3 || p.visibility[b] < 0.3) continue;
+        g.beginPath(); g.moveTo(...p.pixels[a]); g.lineTo(...p.pixels[b]); g.stroke();
+      }
+      p.pixels.forEach(([x, y], j) => {
+        if (p.visibility[j] < 0.3) return;
+        g.beginPath(); g.arc(x, y, 6, 0, 7);
+        g.fillStyle = p.measured && p.measured[j] ? col : "#101b23"; g.fill(); g.strokeStyle = col; g.lineWidth = 2; g.stroke();
+      });
+    }
+  }
+}
+
+function drawTop(msg) {
+  const c = $("top"), g = c.getContext("2d"), W = c.width, H = c.height, range = 6, s = H / range;
+  const X = x => W / 2 + x * s, Z = z => H - z * s;
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = "#263943"; g.lineWidth = 1;
+  for (let v = -range; v <= range; v += 0.5) {
+    g.beginPath(); g.moveTo(X(v), 0); g.lineTo(X(v), H); g.stroke();
+    g.beginPath(); g.moveTo(0, Z(v + range / 2)); g.lineTo(W, Z(v + range / 2)); g.stroke();
+  }
+  g.fillStyle = "#96aab6"; g.beginPath(); g.moveTo(X(0), Z(0)); g.lineTo(X(-0.2), Z(0) + 12); g.lineTo(X(0.2), Z(0) + 12); g.fill();
+  for (const p of msg.people) {
+    const col = color(p.id);
+    const pos = p.joints ? p.joints.filter((_, j) => p.measured[j] || !p.measured.some(Boolean)) : (p.centroid ? [p.centroid] : []);
+    if (!pos.length) continue;
+    const x = pos.reduce((a, q) => a + q[0], 0) / pos.length, z = pos.reduce((a, q) => a + q[2], 0) / pos.length;
+    if (p.joints) {
+      g.fillStyle = col + "88";
+      for (const q of p.joints) { g.beginPath(); g.arc(X(q[0]), Z(q[2]), 2.5, 0, 7); g.fill(); }
+    }
+    g.fillStyle = col; g.beginPath(); g.arc(X(x), Z(z), 9, 0, 7); g.fill();
+    g.fillStyle = "#edf5f7"; g.font = "14px sans-serif";
+    g.fillText(`ID ${p.id}${p.distance_measured ? "" : " ≈"}`, X(x) + 12, Z(z) + 5);
+  }
+}
+
+$("connect").onclick = connect;
+connect();
+</script>
+</body>
+</html>

@@ -26,7 +26,7 @@ WINDOW = "Astra Studio (OpenCV)"
 
 
 def run(cfg, segmentation=True):
-    from ..pipeline.worker import find_astra_rgb_index
+    from ..sensors.discovery import find_astra_rgb_index
     cfg["rgb"]["index"] = find_astra_rgb_index(cfg["rgb"]["index"])  # 插拔其他攝影機後編號會變
     source = AstraSource(cfg).start()
     pipeline = Pipeline(cfg, segmentation=segmentation)
