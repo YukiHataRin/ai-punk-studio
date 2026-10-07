@@ -10,6 +10,8 @@ import json
 
 from websockets.sync.client import connect
 
+from astra_studio import utf8_stdio
+
 
 def summary(msg):
     people = []
@@ -21,6 +23,7 @@ def summary(msg):
 
 
 def main():
+    utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("url", nargs="?", default="ws://127.0.0.1:8765")
     parser.add_argument("--frames", type=int, help="收到幾幀後結束")

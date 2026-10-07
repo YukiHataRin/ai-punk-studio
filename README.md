@@ -57,6 +57,12 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ./.conda/bin/python scripts/download_models.py
 ```
 
+Linux 若是精簡安裝，可能缺 Qt 與 MediaPipe 需要的系統函式庫（錯誤訊息如 `libGLESv2.so.2: cannot open shared object file`）：
+
+```bash
+sudo apt install libegl1 libgl1 libgles2 libxkbcommon0 libfontconfig1 libdbus-1-3
+```
+
 ### Windows（PowerShell）
 
 ```powershell
@@ -285,6 +291,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 - **新出現的人晚一幀才有骨架**：RTMPose 用上一幀的人框才能與 YOLO 平行；設 `[pose] pipelined = false` 可改為同一幀（三人時約 45 ms／幀）。
 - **RTMPose 的 CoreML 不能改變 batch 大小**，因此每人各跑一次（約 4 ms／人）；CoreML 出錯時自動改用 CPU（約 10 ms／人）。
 - **MediaPipe 模式固定用 CPU**：macOS 上 mediapipe 的 GPU delegate 每幀洩漏約 14 MB Metal 記憶體（0.10.35 與 1.0.1 皆然），30 fps 下不到一分鐘耗盡；1.0.1 的 CPU delegate 又會崩潰，因此固定 0.10.35 + CPU。
+- **ONNX Runtime 的遙測已關閉**：onnxruntime 1.21+ 預設會傳使用資料給 Microsoft，且其上傳執行緒會讓程式結束時偶爾 abort（exit 134）；本專案匯入時即設定 `ORT_DISABLE_TELEMETRY=1`。
 - **MediaPipe 0.10.35 的使用資料回傳**（只在選用 MediaPipe 骨架時；預設的 RTMPose 模式不會載入 mediapipe）：此版本會嘗試連線 `play.googleapis.com`（log 中可見 `portable_clearcut_uploader`），官方未提供關閉方式（[google-ai-edge/mediapipe#6291](https://github.com/google-ai-edge/mediapipe/issues/6291)）。介意者可用防火牆（如 LuLu、Little Snitch）阻擋。
 - **Astra Pro 的 RGB 與深度不同步**：兩者是獨立裝置，快速動作時可能有一兩幀時間差。
 

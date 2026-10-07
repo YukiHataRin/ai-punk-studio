@@ -3,11 +3,12 @@
 import argparse
 import sys
 
-from . import __version__
+from . import __version__, utf8_stdio
 from .config import load_config
 
 
 def main():
+    utf8_stdio()
     parser = argparse.ArgumentParser(description="Astra Studio：RGB-D 人體分割、多人 3D 骨架與 ID 追蹤")
     parser.add_argument("--version", action="version", version=f"astra-studio {__version__}")
     parser.add_argument("--config", help="設定檔路徑（預設 config/default.toml）")

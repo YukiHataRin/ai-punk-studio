@@ -31,6 +31,17 @@ def standing_person(x=640, y=360, scale=1.0):
     return PoseObservation(pixels, np.ones(33, np.float32), world)
 
 
+class TelemetryTest(unittest.TestCase):
+    def test_onnxruntime_telemetry_disabled_before_import(self):
+        """回歸：onnxruntime 遙測的上傳執行緒曾讓程式結束時 abort（exit 134），必須在匯入前關閉。"""
+        import subprocess
+        import sys
+        code = "import os, astra_studio, onnxruntime; print(os.environ.get('ORT_DISABLE_TELEMETRY'))"
+        env = {k: v for k, v in __import__("os").environ.items() if k != "ORT_DISABLE_TELEMETRY"}
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
+        self.assertEqual(out.stdout.strip(), "1")
+
+
 class SkeletonFormatTest(unittest.TestCase):
     def test_formats_are_consistent(self):
         for fmt in FORMATS.values():

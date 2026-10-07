@@ -42,7 +42,15 @@ def fetch(url, dest):
     part.replace(dest)
 
 
+def utf8_stdio():
+    """Windows 主控台常是 cp1252 等編碼，印中文會 UnicodeEncodeError；統一改成 UTF-8，無法顯示的字元以 ? 取代。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(root=ROOT):
+    utf8_stdio()
     root = Path(root)
     for rel, url in FILES.items():
         dest = root / rel

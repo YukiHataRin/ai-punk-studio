@@ -9,6 +9,8 @@
 - 模型下載改為跨平台的 `scripts/download_models.py`；新增 `launch.sh`、`launch.bat`
 - 介面字型依平台挑選繁體中文字型；新增 `--version`
 - GitHub Actions：在 Ubuntu / Windows / macOS 自動跑測試
+- 關閉 onnxruntime 內建的 Microsoft 遙測（修正程式結束時偶發的 exit 134 abort）
+- 命令列輸出統一為 UTF-8（修正 Windows 非中文主控台印中文時崩潰）
 
 ## 0.4.0 — WebSocket 串流與 headless
 - WebSocket 即時推送每幀人物資料（ID、距離、3D/2D 關節、輪廓）

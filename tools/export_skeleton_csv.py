@@ -11,6 +11,7 @@ import argparse
 import csv
 from pathlib import Path
 
+from astra_studio import utf8_stdio
 from astra_studio.core.skeleton_format import FORMATS, MEDIAPIPE33
 from astra_studio.io.recorder import read_skeleton
 
@@ -32,6 +33,7 @@ def export(session_dir, out_path=None):
 
 
 def main():
+    utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("session", help="錄製目錄（含 skeleton.jsonl）")
     parser.add_argument("-o", "--output", help="輸出 CSV 路徑（預設放在錄製目錄）")

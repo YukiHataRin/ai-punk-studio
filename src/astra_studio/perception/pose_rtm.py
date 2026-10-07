@@ -21,6 +21,9 @@ import onnxruntime as ort
 from ..core.skeleton_format import HALPE26
 from ..core.types import PoseObservation
 
+# 主要靠 astra_studio/__init__.py 設定的 ORT_DISABLE_TELEMETRY=1（匯入前生效）；這裡再保險關一次
+ort.disable_telemetry_events()
+
 MEAN = np.array([123.675, 116.28, 103.53], np.float32)
 STD = np.array([58.395, 57.12, 57.375], np.float32)
 PADDING = 1.25
