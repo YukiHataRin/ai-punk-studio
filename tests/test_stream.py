@@ -173,7 +173,7 @@ class HeadlessCliTest(unittest.TestCase):
             path = rec.close()
             result = subprocess.run(
                 [sys.executable, "-m", "astra_studio", "--headless", "--play", str(path), "--ws-port", "0"],
-                cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=120)
+                cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=120)  # 程式輸出固定為 UTF-8
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("WebSocket 串流：ws://127.0.0.1:", result.stdout)
         self.assertIn("播放完畢", result.stdout)
