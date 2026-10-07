@@ -5,7 +5,7 @@ import time
 import cv2
 import numpy as np
 
-from .base import Grabber
+from .base import CAPTURE_BACKEND, Grabber
 
 
 class RgbCamera(Grabber):
@@ -16,12 +16,13 @@ class RgbCamera(Grabber):
 
     def __init__(self, index, width, height):
         super().__init__()
-        self.cap = cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
+        self.cap = cv2.VideoCapture(index, CAPTURE_BACKEND)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         if not self.cap.isOpened():
-            raise RuntimeError(f"無法開啟 RGB 相機 {index}：請確認相機權限，並在終端機分頁（非背景）執行。")
+            raise RuntimeError(f"無法開啟 RGB 相機 {index}：請確認攝影機已連接，以及相機權限"
+                               "（macOS 需在已允許相機的終端機執行；Linux 需要 video 群組權限）。")
         self.size = (width, height)
         self._opened_at = time.monotonic()
         self._received = False

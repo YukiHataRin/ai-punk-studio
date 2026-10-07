@@ -36,7 +36,7 @@ rotation_deg = [0.0, 0.0, 0.0]
 [pose]
 backend = "rtmpose"           # rtmpose：YOLO 人框逐人估計（多人穩定，推薦）；mediapipe：整張畫面多人
 rtm_model = "models/rtmpose-m_halpe26.onnx"   # RTMPose-m，Halpe26 26 點（含腳）
-rtm_provider = "coreml"       # coreml（約 4 ms/人）/ cpu（約 10 ms/人）
+rtm_provider = "auto"         # auto：macOS 用 coreml、有 onnxruntime-gpu 時用 cuda、其餘 cpu
 pipelined = true              # 用上一幀的人框與 YOLO 平行估計（快，新出現的人晚一幀才有骨架）
 model = "models/pose_landmarker_heavy.task"   # MediaPipe 模型：lite / full / heavy
 num_poses = 4                 # 最多同時估計骨架的人數（RTMPose 取最大的幾個人框）

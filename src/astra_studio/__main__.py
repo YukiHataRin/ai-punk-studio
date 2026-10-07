@@ -3,11 +3,13 @@
 import argparse
 import sys
 
+from . import __version__
 from .config import load_config
 
 
 def main():
     parser = argparse.ArgumentParser(description="Astra Studio：RGB-D 人體分割、多人 3D 骨架與 ID 追蹤")
+    parser.add_argument("--version", action="version", version=f"astra-studio {__version__}")
     parser.add_argument("--config", help="設定檔路徑（預設 config/default.toml）")
     parser.add_argument("--start", action="store_true", help="開啟後立即開始擷取")
     parser.add_argument("--no-seg", action="store_true", help="關閉 YOLO 人體分割，只跑骨架")

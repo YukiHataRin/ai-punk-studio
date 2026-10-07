@@ -6,10 +6,12 @@
 前後處理與 rtmlib（Apache-2.0）的 RTMPose 一致：框放大 1.25 倍、補成 192:256、仿射裁切、
 以 mean/std 正規化（直接用 BGR，與 rtmlib 相同）、SimCC 取最大值（split ratio 2，分數取兩軸最大值平均）。
 
-推論用 onnxruntime。CoreML 每人約 4 ms（Apple M5）且記憶體不成長，但 batch 大小改變時會失敗，
-所以固定 batch = 1 逐人執行；CoreML 出錯時自動改用 CPU（每人約 10 ms）。
+推論用 onnxruntime，rtm_provider = auto 時依平台選：macOS 用 CoreML（每人約 4 ms，Apple M5）；
+裝了 onnxruntime-gpu 且有 NVIDIA GPU 時用 CUDA；其餘用 CPU（每人約 10 ms）。
+CoreML 在 batch 大小改變時會失敗，所以固定 batch = 1 逐人執行；GPU 後端出錯時自動改用 CPU。
 """
 
+import sys
 import time
 
 import cv2
@@ -51,6 +53,18 @@ def decode_simcc(simcc_x, simcc_y):
     return locs, scores
 
 
+def resolve_provider(name):
+    """auto → 依平台與已安裝的 onnxruntime 選擇 coreml / cuda / cpu。"""
+    if name != "auto":
+        return name
+    available = ort.get_available_providers()
+    if sys.platform == "darwin" and "CoreMLExecutionProvider" in available:
+        return "coreml"
+    if "CUDAExecutionProvider" in available:
+        return "cuda"
+    return "cpu"
+
+
 class RTMPoseEstimator:
     fmt = HALPE26
 
@@ -59,12 +73,14 @@ class RTMPoseEstimator:
         self.model_path = params["rtm_model"]
         self.max_people = params.get("num_poses", 4)
         self.inference_ms = 0.0
-        self._open(params.get("rtm_provider", "coreml"))
+        self._open(resolve_provider(params.get("rtm_provider", "auto")))
 
     def _open(self, provider):
-        providers = ["CoreMLExecutionProvider", "CPUExecutionProvider"] if provider == "coreml" else ["CPUExecutionProvider"]
+        accel = {"coreml": "CoreMLExecutionProvider", "cuda": "CUDAExecutionProvider"}.get(provider)
+        providers = [accel, "CPUExecutionProvider"] if accel else ["CPUExecutionProvider"]
         self.session = ort.InferenceSession(self.model_path, providers=providers)
-        self.provider = provider
+        active = self.session.get_providers()[0]
+        self.provider = provider if active == accel else "cpu"  # GPU 後端載入失敗時 onnxruntime 會默默退回 CPU
         inp = self.session.get_inputs()[0]
         self.input_name = inp.name
         self.in_h, self.in_w = inp.shape[2], inp.shape[3]
@@ -72,13 +88,13 @@ class RTMPoseEstimator:
 
     @property
     def device_label(self):
-        return "CoreML" if self.provider == "coreml" else "CPU"
+        return {"coreml": "CoreML", "cuda": "CUDA"}.get(self.provider, "CPU")
 
     def _infer(self, blob):
         try:
             return self.session.run(self.output_names, {self.input_name: blob})
         except Exception:
-            if self.provider != "coreml":
+            if self.provider == "cpu":
                 raise
             self._open("cpu")  # CoreML 偶爾不支援某些輸入，改用 CPU 繼續
             return self.session.run(self.output_names, {self.input_name: blob})

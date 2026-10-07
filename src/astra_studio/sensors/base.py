@@ -1,7 +1,13 @@
 """背景擷取執行緒與「只留最新一張」的影格信箱。"""
 
+import sys
 import threading
 import time
+
+import cv2
+
+# OpenCV 擷取後端：macOS AVFoundation、Windows Media Foundation、Linux V4L2
+CAPTURE_BACKEND = {"darwin": cv2.CAP_AVFOUNDATION, "win32": cv2.CAP_MSMF}.get(sys.platform, cv2.CAP_V4L2)
 
 
 class LatestFrame:

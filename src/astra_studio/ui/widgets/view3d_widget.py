@@ -6,9 +6,10 @@
 import numpy as np
 import pyqtgraph.opengl as gl
 from pyqtgraph import Vector
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 
 from ...render.scene3d import build_scene, rgba
+from ..theme import ui_font
 
 
 class View3DWidget(gl.GLViewWidget):
@@ -36,7 +37,7 @@ class View3DWidget(gl.GLViewWidget):
         for item in (self.cloud, self.bones, self.joints):
             self.addItem(item)
         self._labels = {}
-        self._font = QFont("PingFang TC", 11)
+        self._font = ui_font(11)
 
     def reset_view(self):
         self.setCameraPosition(pos=Vector(0, 2.5, 0), distance=5.5, elevation=22, azimuth=-110)

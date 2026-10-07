@@ -40,7 +40,8 @@ def open_depth():
 
 
 def open_rgb(index):
-    cap = cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
+    from astra_studio.sensors.base import CAPTURE_BACKEND
+    cap = cv2.VideoCapture(index, CAPTURE_BACKEND)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
     if not cap.isOpened():

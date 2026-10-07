@@ -29,7 +29,8 @@ class Camera:
 def enumerate_devices():
     from cv2_enumerate_cameras import enumerate_cameras
 
-    backend = {"darwin": cv2.CAP_AVFOUNDATION, "win32": cv2.CAP_MSMF}.get(sys.platform, cv2.CAP_V4L2)
+    from .base import CAPTURE_BACKEND
+    backend = CAPTURE_BACKEND
     return [Camera(item.name or "Camera", item.index, item.backend, item.path or f"{item.backend}:{item.index}")
             for item in enumerate_cameras(backend)]
 

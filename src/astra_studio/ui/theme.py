@@ -37,10 +37,23 @@ QPushButton#mode:checked {{ background: {ACCENT}; color: {BG}; }}
 """
 
 
+CJK_FONTS = {"darwin": ["PingFang TC", "Heiti TC"],
+             "win32": ["Microsoft JhengHei UI", "Microsoft JhengHei"],
+             "linux": ["Noto Sans CJK TC", "Noto Sans TC", "WenQuanYi Micro Hei"]}
+
+
+def ui_font(size=12):
+    """依平台挑有繁體中文字形的字型，沒有就交給 Qt 自動替代。"""
+    font = QFont()
+    font.setFamilies(CJK_FONTS.get(sys.platform, CJK_FONTS["linux"]))
+    font.setPointSize(size)
+    return font
+
+
 def apply_theme(app):
     from qt_material import apply_stylesheet
 
-    family = "PingFang TC" if sys.platform == "darwin" else app.font().family()
-    app.setFont(QFont(family, 12))
+    app.setFont(ui_font(12))
+    family = app.font().family()
     apply_stylesheet(app, theme="dark_teal.xml", extra={"font_family": family, "density_scale": "-1"})
     app.setStyleSheet(app.styleSheet() + STYLESHEET)
