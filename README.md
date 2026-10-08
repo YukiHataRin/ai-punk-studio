@@ -80,11 +80,32 @@ $env:PYTHONNOUSERSITE = "1"
 .\.conda\python.exe scripts\download_models.py
 ```
 
-### NVIDIA GPU（Linux / Windows）
+### NVIDIA GPU（Linux / Windows，選用）
 
-- **YOLO**：Linux 從 PyPI 裝的 PyTorch 已含 CUDA；Windows 的 PyPI 版只有 CPU，請另外安裝 CUDA 版
-  （RTX 50 系列需要 CUDA 12.8 以上）：`pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128`
-- **RTMPose**（選用）：預設在 CPU 上執行即可（每人約 10 ms）；要用 GPU 時把 `onnxruntime` 換成 `onnxruntime-gpu`，`rtm_provider = "auto"` 會自動改用 CUDA
+沒有 GPU 也能跑（較慢）。要用 NVIDIA GPU 加速，**請依自己的顯示卡與驅動安裝對應的 CUDA 版 PyTorch**，
+建議在上面「安裝」的步驟 2 之前先裝好，`pip install -r requirements.txt` 就會沿用、不會覆蓋：
+
+1. 查驅動支援的 CUDA 版本：執行 `nvidia-smi`，看右上角的 `CUDA Version`（這是驅動**最高**支援的版本）
+2. 到 [PyTorch 官網的安裝選擇器](https://pytorch.org/get-started/locally/) 選 Pip、你的系統與**不高於上述版本**的 CUDA，
+   複製它給的指令，把開頭的 `pip` 換成專案環境的 Python，例如：
+
+   ```bash
+   ./.conda/bin/python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+   ```
+
+   `cu128` 只是範例，請換成選擇器給你的版本。RTX 50 系列（Blackwell）需要 CUDA 12.8 以上；
+   Linux 直接從 PyPI 安裝的 PyTorch 已附 CUDA，但版本不一定符合你的驅動，仍建議用選擇器確認
+3. 確認 GPU 可用（應印出 `True` 與顯示卡名稱）：
+
+   ```bash
+   ./.conda/bin/python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+   ```
+
+4. **RTMPose**（選用）：預設在 CPU 上執行即可（每人約 10 ms）。要用 GPU 時把 `onnxruntime` 換成
+   [`onnxruntime-gpu`](https://onnxruntime.ai/docs/install/)，它對 CUDA 與 cuDNN 版本有自己的要求，請依其文件選擇相容版本；
+   裝好後 `rtm_provider = "auto"` 會自動改用 CUDA，介面右側會顯示「RTMPose-m：CUDA」
+
+> 目前在 Linux（RTX 5080）只驗證過 CPU 版 PyTorch；CUDA 加速的實際效能尚未實測。
 
 ### Astra Pro 驅動
 
