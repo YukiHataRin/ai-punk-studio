@@ -259,6 +259,36 @@ class MainWindowTest(unittest.TestCase):
         w.stop()
         w.close()
 
+    def test_stream_port_setting(self):
+        """介面可改埠號：串流關閉時才能改，開啟時鎖定；埠號被占用時顯示錯誤、取消勾選並解除鎖定。"""
+        import copy
+        import socket
+        cfg = copy.deepcopy(CFG)
+        w = MainWindow(cfg, worker_factory=FakeWorker, enable_3d=False, camera_discover=None)
+        port_box = w.inspector.stream_port_box
+        self.assertEqual(port_box.value(), cfg["stream"]["port"])  # 預設值來自設定（含 --ws-port）
+        port_box.setValue(0)  # 0 = 自動選可用埠
+        self.assertEqual(w.cfg["stream"]["port"], 0)
+        w.inspector.stream_enabled_box.setChecked(True)
+        self.assertIsNotNone(w.stream)
+        self.assertFalse(port_box.isEnabled())
+        w.inspector.stream_enabled_box.setChecked(False)
+        self.assertTrue(port_box.isEnabled())
+
+        busy = socket.socket()
+        busy.bind(("127.0.0.1", 0))
+        busy.listen()
+        try:
+            port_box.setValue(busy.getsockname()[1])
+            w.inspector.stream_enabled_box.setChecked(True)
+            self.assertIsNone(w.stream)
+            self.assertFalse(w.inspector.stream_enabled_box.isChecked())
+            self.assertTrue(port_box.isEnabled())
+            self.assertIn("WebSocket", w.status.text())
+        finally:
+            busy.close()
+        w.close()
+
     def test_initial_camera_and_depth_chip(self):
         from aipunk_studio.sensors.discovery import Camera
         cams = [Camera("Astra Pro HD Camera", 0, 1200, "a"), Camera("USB Webcam", 2, 1200, "b")]

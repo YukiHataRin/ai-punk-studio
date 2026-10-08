@@ -3,11 +3,12 @@
 key 分兩類：
 - 管線設定（送給 worker）：confidence、tracking、use_mask、point_cloud、min_cutoff_3d、extrinsic_x
 - 顯示設定（UI 自己用）：layer_mask、layer_skeleton、layer_labels、opacity
+- 串流設定：stream_enabled、stream_port（0 = 自動選可用埠；串流開啟時鎖定）
 """
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QSlider, QVBoxLayout,
+    QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QSlider, QSpinBox, QVBoxLayout,
 )
 
 PIPELINE_KEYS = {"confidence", "tracking", "use_mask", "point_cloud", "min_cutoff_3d", "extrinsic_x"}
@@ -81,6 +82,20 @@ class Inspector(QFrame):
 
         self.section("串流（WebSocket）")
         self.check("啟用 WebSocket 串流", "stream_enabled", cfg["stream"]["enabled"])
+        row = QHBoxLayout()
+        name = QLabel("埠號（串流關閉時可改）")
+        name.setObjectName("controlLabel")
+        self.stream_port_box = QSpinBox()
+        self.stream_port_box.setAccessibleName("WebSocket 埠號")
+        self.stream_port_box.setRange(0, 65535)
+        self.stream_port_box.setSpecialValueText("自動")  # 0：由系統挑一個可用的埠
+        self.stream_port_box.setKeyboardTracking(False)  # 輸入完才送出，不會每打一個字就變更
+        self.stream_port_box.setValue(int(cfg["stream"]["port"]))
+        self.stream_port_box.valueChanged.connect(lambda v: self.changed.emit("stream_port", v))
+        row.addWidget(name)
+        row.addStretch()
+        row.addWidget(self.stream_port_box)
+        self.box.addLayout(row)
         self.stream_info = QLabel("未啟用")
         self.stream_info.setObjectName("controlLabel")
         self.stream_info.setWordWrap(True)
@@ -189,6 +204,10 @@ class Inspector(QFrame):
         self.model.setEnabled(not running)
         self.camera.setEnabled(not running)
         self.refresh.setEnabled(not running)
+
+    def set_streaming(self, active):
+        """串流開啟時鎖定埠號（要換埠號請先關閉串流）。"""
+        self.stream_port_box.setEnabled(not active)
 
     def pose_model(self):
         return self.model.currentData()

@@ -4,6 +4,7 @@
 每個版本在 GitHub 上都有對應的 tag（例如 `v0.4.0`），可用 `git checkout v0.4.0` 切換。
 
 ## 未發布
+- 介面的「串流（WebSocket）」區可以修改埠號（串流關閉時才能改，0 為自動選可用埠）
 - 新增 [WebSocket API 文件](docs/API.md)：完整的訊息格式、欄位、座標系、`null` 規則、設定與 Python / JavaScript 範例；README 改為連結到這份文件
 - **修正深度單位（影響所有 3D 量測）**：Astra Pro 經 pyorbbecsdk 讀到的深度原始值以 1 cm 為單位，
   先前當成 mm（SDK 的 depth_scale 回報 1.0），使深度小了 10 倍、大多被最小距離過濾掉，關節幾乎量不到深度。

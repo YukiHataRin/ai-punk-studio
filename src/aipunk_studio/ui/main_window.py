@@ -219,6 +219,7 @@ class MainWindow(QMainWindow):
             stream.stop()
         if self.worker:
             self.worker.runner.publisher = self.stream
+        self.inspector.set_streaming(self.stream is not None)
         self.update_stream_info()
 
     def update_stream_info(self):
@@ -231,6 +232,9 @@ class MainWindow(QMainWindow):
     def on_setting(self, key, value):
         if key == "stream_enabled":
             self.set_streaming(value)
+            return
+        if key == "stream_port":
+            self.cfg["stream"]["port"] = int(value)  # 下次開啟串流時生效
             return
         if key in PIPELINE_KEYS:
             self.pipeline_settings[key] = value
