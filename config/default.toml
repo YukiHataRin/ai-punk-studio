@@ -23,6 +23,9 @@ cx = 320.0
 cy = 240.0
 min_mm = 400
 max_mm = 6000
+# 原始深度值的單位（mm）：Astra Pro 經 pyorbbecsdk 1.3.2（OpenNI 協定）讀到的值以 1 cm 為單位，
+# SDK 回報的 depth_scale 1.0 並不正確（以人體肩寬與 RGB 對齊驗證）。換用其他相機時依實測調整
+unit_mm = 10.0
 
 [webcam]
 # 一般攝影機（沒有深度）沒有出廠內參，用水平視角推算焦距；MacBook 內建相機約 65–75°

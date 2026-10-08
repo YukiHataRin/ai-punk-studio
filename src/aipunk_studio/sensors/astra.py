@@ -43,13 +43,21 @@ class RgbCamera(Grabber):
         self.cap.release()
 
 
+ASTRA_DEPTH_UNIT_MM = 10.0  # 原始值的單位；設定檔 [depth] unit_mm 可覆寫
+
+
 class DepthCamera(Grabber):
-    """輸出 uint16 深度圖，單位 mm，0 代表無效。"""
+    """輸出 uint16 深度圖，單位 mm，0 代表無效。
+
+    unit_mm：原始值的單位。Astra Pro 經 pyorbbecsdk 1.3.2 讀到的值以 1 cm 為單位，
+    但 SDK 的 get_depth_scale() 回報 1.0，所以不用它，改由設定指定。
+    """
 
     name = "astra-depth"
 
-    def __init__(self, width, height, fps):
+    def __init__(self, width, height, fps, unit_mm=ASTRA_DEPTH_UNIT_MM):
         super().__init__()
+        self.unit_mm = unit_mm
         from pyorbbecsdk import Config, Context, OBFormat, OBLogLevel, OBSensorType, Pipeline
 
         Context.set_logger_level(OBLogLevel.NONE)
@@ -66,7 +74,7 @@ class DepthCamera(Grabber):
             return None
         data = np.frombuffer(depth.get_data(), dtype=np.uint16)
         data = data.reshape(depth.get_height(), depth.get_width())
-        return (data * depth.get_depth_scale()).astype(np.uint16)
+        return np.clip(data * self.unit_mm, 0, 65535).astype(np.uint16)
 
     def close(self):
         self.pipe.stop()
@@ -85,7 +93,7 @@ class AstraSource:
         r, d = cfg["rgb"], cfg["depth"]
         self.rgb = RgbCamera(r["index"], r["width"], r["height"])
         try:
-            self.depth = DepthCamera(d["width"], d["height"], d["fps"])
+            self.depth = DepthCamera(d["width"], d["height"], d["fps"], d.get("unit_mm", ASTRA_DEPTH_UNIT_MM))
         except Exception as error:
             self.rgb.close()
             raise DepthUnavailable(str(error)) from error

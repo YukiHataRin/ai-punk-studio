@@ -4,6 +4,7 @@ import json
 import tempfile
 import time
 import unittest
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -93,6 +94,19 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(frame.shape, (720, 1280, 3))
         self.assertTrue((depth == 1000 + N - 1).all())
         self.assertEqual(len(src), N)
+
+    def test_legacy_recording_depth_is_converted_to_mm(self):
+        """修正深度單位前的錄製（meta 沒有 unit_mm）存的是相機原始值（1 cm），回放時換算成 mm。"""
+        import shutil
+        meta = json.loads((self.dir / "meta.json").read_text(encoding="utf-8"))
+        self.assertIn("unit_mm", meta["depth"])  # 新錄製會記下單位，深度 PNG 已是 mm
+        self.assertEqual(PlaybackSource(self.dir)._read_depth(0)[0, 0], 1000)
+        with tempfile.TemporaryDirectory() as tmp:
+            legacy = Path(tmp) / "legacy"
+            shutil.copytree(self.dir, legacy)
+            del meta["depth"]["unit_mm"]
+            (legacy / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+            self.assertEqual(PlaybackSource(legacy)._read_depth(0)[0, 0], 10000)
 
     def test_skeleton_only_recording_cannot_play(self):
         with tempfile.TemporaryDirectory() as tmp:

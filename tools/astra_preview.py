@@ -18,6 +18,7 @@ import numpy as np
 from pyorbbecsdk import Config, Context, OBFormat, OBLogLevel, OBSensorType, Pipeline
 
 WIDTH, HEIGHT = 640, 480
+DEPTH_UNIT_MM = 10.0  # Astra Pro 原始深度值的單位
 COLORMAPS = [cv2.COLORMAP_JET, cv2.COLORMAP_TURBO, cv2.COLORMAP_BONE]
 
 mouse_xy = None
@@ -58,7 +59,7 @@ def read_depth_mm(pipe):
         return None
     data = np.frombuffer(depth.get_data(), dtype=np.uint16)
     data = data.reshape(depth.get_height(), depth.get_width())
-    return (data * depth.get_depth_scale()).astype(np.uint16)
+    return np.clip(data * DEPTH_UNIT_MM, 0, 65535).astype(np.uint16)  # 原始值以 1 cm 為單位（見 config/default.toml）
 
 
 def colorize(depth_mm, max_mm, cmap):
