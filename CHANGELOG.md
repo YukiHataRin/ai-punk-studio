@@ -8,7 +8,7 @@
   - 只用骨架模型偵測到的關節計算：沒入鏡的腳是模型猜的，抖動原本會被當成動作；看不到雙腳時重心高度與晃動顯示「—」
   - 左右平衡、左右協調、軌跡曲率加上靜止門檻：靜止時平衡接近 1、協調與曲率接近 0，動作明顯時與原公式相同
   - 修正距離跳動：只有臉部少數點量到深度（常是頭部邊緣的背景）時，整副骨架會被推到錯的深度；
-    現在推估關節的深度平面只看身體關節，太少時改用整個人的遮罩深度
+    現在推估關節的深度平面只看身體關節，太少時改用整個人的遮罩深度（RTMPose 與 MediaPipe 兩種骨架都適用）
 - **專案結構重整**：
   - 新增 `python -m aipunk_studio --export 錄製目錄` 取代 `tools/export_skeleton_csv.py`（匯出移入套件 `io/export.py`）
   - `scripts/download_models.py` → `tools/download_models.py`；`tools/ws_client.py` → `examples/ws_client.py`（與 `web_viewer.html` 同為串流用戶端範例）；`tools/preview.py` → `tools/astra_preview.py`

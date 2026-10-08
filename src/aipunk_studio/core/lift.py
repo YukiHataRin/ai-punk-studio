@@ -15,8 +15,9 @@
 
 量不到深度的關節（推估）：
 - 有 world landmarks（MediaPipe）：把 world 骨架平移到實測關節上補齊；
-- 沒有（RTMPose）：2D 位置照用，深度取這個人實測關節的中位數（只看身體關節，實測少於 MIN_PLANE_JOINTS 個就用 ref），
-  也就是假設該關節落在人體所在的深度平面上。
+- 沒有（RTMPose）：2D 位置照用，深度取這個人實測關節的中位數，也就是假設該關節落在人體所在的深度平面上。
+兩者都只以實測的「身體」關節為準（臉部與頭頂常量到頭部後方的背景）；實測的身體關節少於
+MIN_PLANE_JOINTS 個時改以 ref 為準，避免一兩個錯值把整副骨架推到錯的深度。
 """
 
 import numpy as np
@@ -115,19 +116,20 @@ def lift_person(person: PoseObservation, reg_depth, reg_scale, rgb_k: Intrinsics
     if not measured.any() and not ref:
         ref = estimate_distance(person, rgb_k, params) or FALLBACK_DEPTH_M
     if missing.any():
+        # 推估關節的位置只以實測的身體關節為準：臉部與頭頂擠在頭部邊緣，常量到後方背景；
+        # 實測的身體關節太少時不可靠，改用整個遮罩的基準深度 ref，否則一兩個錯值就會把整副骨架推走
+        anchors = measured & body_mask(fmt)
+        enough = anchors.sum() >= MIN_PLANE_JOINTS
         if person.world is not None:
             # 用實測關節與 world landmarks 的平均位移，把剩下的關節補到同一個座標系
-            if measured.any():
-                offset = pts[measured].mean(0) - person.world[measured].mean(0)
+            if enough:
+                offset = pts[anchors].mean(0) - person.world[anchors].mean(0)
             else:
                 hip_px = person.pixels[list(fmt.hips)].mean(0)
                 offset = rgb_k.backproject(*hip_px, ref)
             pts[missing] = person.world[missing] + offset
         else:
-            # 深度平面只看身體關節：臉部與頭頂擠在頭部邊緣，常量到後方背景；
-            # 實測的身體關節太少時中位數不可靠，改用整個遮罩的基準深度，否則一兩個錯值就會把整副骨架推走
-            anchors = measured & body_mask(fmt)
-            z = float(np.median(pts[anchors, 2])) if anchors.sum() >= MIN_PLANE_JOINTS or not ref else ref
+            z = float(np.median(pts[anchors, 2])) if enough else ref
             pts[missing] = rgb_k.backproject(person.pixels[missing, 0], person.pixels[missing, 1], z)
 
     sk = Skeleton3D(pts, measured, 0.0, fmt)

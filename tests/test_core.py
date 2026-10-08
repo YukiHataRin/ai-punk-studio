@@ -8,7 +8,7 @@ import numpy as np
 from aipunk_studio.config import load_config
 from aipunk_studio.core.filters import OneEuroFilter
 from aipunk_studio.core.geometry import Intrinsics, rotation_matrix
-from aipunk_studio.core.skeleton_format import FORMATS, HALPE26
+from aipunk_studio.core.skeleton_format import FORMATS, HALPE26, MEDIAPIPE33
 from aipunk_studio.core.lift import estimate_distance, lift_person
 from aipunk_studio.core.registration import DepthToRgb
 from aipunk_studio.core.fusion import associate, depth_mask, mask_centroid, match_previous_boxes
@@ -134,6 +134,22 @@ class LiftTest(unittest.TestCase):
         sk = lift_person(pose, depth, 0.5, RGB_K, CFG["skeleton"], mask)
         self.assertTrue(sk.measured.any())
         self.assertFalse(sk.measured[list(HALPE26.torso)].any())  # 只有臉部附近量到（錯的 1.1 m）
+        self.assertAlmostEqual(float(np.median(sk.points[~sk.measured, 2])), 0.7, delta=0.02)
+
+    def test_few_outlier_joints_do_not_move_mediapipe_skeleton(self):
+        """MediaPipe（有 world landmarks）同樣不能被少數臉部錯值帶走：只有左耳量到背景時，骨架要放在遮罩深度上。"""
+        from aipunk_studio.core.lift import body_mask
+        pose = standing_person()
+        depth = np.full((360, 640), 700, np.uint16)
+        win = CFG["skeleton"]["depth_window"]
+        uv = (pose.pixels * 0.5).astype(int)
+        for u, v in uv:
+            depth[v - 3 * win:v + 3 * win + 1, u - 3 * win:u + 3 * win + 1] = 0
+        u, v = uv[7]  # 左耳
+        depth[v - win:v + win + 1, u - win:u + win + 1] = 1100
+        sk = lift_person(pose, depth, 0.5, RGB_K, CFG["skeleton"], np.ones(depth.shape, bool))
+        self.assertTrue(sk.measured[7])
+        self.assertLess(int((sk.measured & body_mask(MEDIAPIPE33)).sum()), 3)
         self.assertAlmostEqual(float(np.median(sk.points[~sk.measured, 2])), 0.7, delta=0.02)
 
     def test_no_depth_estimates_distance_from_torso_length(self):
