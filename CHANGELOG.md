@@ -3,6 +3,9 @@
 版本號採 [語意化版本](https://semver.org/lang/zh-TW/)：`主版號.次版號.修訂號`。
 每個版本在 GitHub 上都有對應的 tag（例如 `v0.4.0`），可用 `git checkout v0.4.0` 切換。
 
+## 未發布
+- WebSocket 串流不再送出骨架模型沒偵測到（3D 也不畫）的關節：`joints` 與 `pixels` 中該位置改為 `null`，陣列長度與關節索引不變；瀏覽器檢視頁同步調整
+
 ## 0.6.0 — AI Punk Studio：舞蹈動作指標
 - **更名為 AI Punk Studio**（AI Punk 計畫）：GitHub repo 改為 `ai-punk-studio`（舊網址自動轉址）、
   Python 套件改為 `aipunk_studio`、啟動指令改為 `python -m aipunk_studio`

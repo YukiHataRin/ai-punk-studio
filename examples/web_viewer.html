@@ -82,11 +82,12 @@ function drawFront(msg) {
       const conn = hello.formats[p.format].connections;
       g.lineWidth = 4; g.strokeStyle = col;
       for (const [a, b] of conn) {
-        if (p.visibility[a] < 0.3 || p.visibility[b] < 0.3) continue;
+        if (!p.pixels[a] || !p.pixels[b]) continue;  // 沒偵測到的關節為 null
         g.beginPath(); g.moveTo(...p.pixels[a]); g.lineTo(...p.pixels[b]); g.stroke();
       }
-      p.pixels.forEach(([x, y], j) => {
-        if (p.visibility[j] < 0.3) return;
+      p.pixels.forEach((q, j) => {
+        if (!q) return;
+        const [x, y] = q;
         g.beginPath(); g.arc(x, y, 6, 0, 7);
         g.fillStyle = p.measured && p.measured[j] ? col : "#101b23"; g.fill(); g.strokeStyle = col; g.lineWidth = 2; g.stroke();
       });
@@ -106,12 +107,12 @@ function drawTop(msg) {
   g.fillStyle = "#96aab6"; g.beginPath(); g.moveTo(X(0), Z(0)); g.lineTo(X(-0.2), Z(0) + 12); g.lineTo(X(0.2), Z(0) + 12); g.fill();
   for (const p of msg.people) {
     const col = color(p.id);
-    const pos = p.joints ? p.joints.filter((_, j) => p.measured[j] || !p.measured.some(Boolean)) : (p.centroid ? [p.centroid] : []);
+    const pos = p.joints ? p.joints.filter((q, j) => q && (p.measured[j] || !p.measured.some(Boolean))) : (p.centroid ? [p.centroid] : []);
     if (!pos.length) continue;
     const x = pos.reduce((a, q) => a + q[0], 0) / pos.length, z = pos.reduce((a, q) => a + q[2], 0) / pos.length;
     if (p.joints) {
       g.fillStyle = col + "88";
-      for (const q of p.joints) { g.beginPath(); g.arc(X(q[0]), Z(q[2]), 2.5, 0, 7); g.fill(); }
+      for (const q of p.joints) { if (!q) continue; g.beginPath(); g.arc(X(q[0]), Z(q[2]), 2.5, 0, 7); g.fill(); }
     }
     g.fillStyle = col; g.beginPath(); g.arc(X(x), Z(z), 9, 0, 7); g.fill();
     g.fillStyle = "#edf5f7"; g.font = "14px sans-serif";

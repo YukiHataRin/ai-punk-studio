@@ -7,10 +7,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from ..core.fusion import MIN_VISIBILITY  # 骨架模型判斷沒偵測到（例如在畫面外被猜出來）的關節，3D 不畫
 from .colors import hex_to_bgr, track_hex
 
 DIM = 0.4  # 推估關節的亮度倍率
-MIN_VISIBILITY = 0.5  # 骨架模型判斷沒偵測到（例如在畫面外被猜出來）的關節，3D 不畫
 
 
 def to_gl(points):

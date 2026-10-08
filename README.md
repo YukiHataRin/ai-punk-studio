@@ -229,9 +229,9 @@ git checkout v0.6.0                                # 或切到指定版本（版
    "distance": 2.14, "distance_measured": true,   // false 時為估計值
    "centroid": [0.12, -0.05, 2.20],  // 3D 位置（公尺），沒有深度時為 null
    "format": "halpe26",
-   "joints": [[x, y, z], ...],       // 3D 關節（公尺）
+   "joints": [[x, y, z], null, ...], // 3D 關節（公尺）；沒偵測到、畫面上不畫的關節為 null
    "measured": [1, 1, 0, ...],       // 每個關節是否深度實測
-   "pixels": [[u, v], ...], "visibility": [0.98, ...],   // 2D 關節與信心值
+   "pixels": [[u, v], null, ...], "visibility": [0.98, 0.21, ...],   // 2D 關節（同上為 null）與信心值
    "box": [x1, y1, x2, y2],
    "contour": [[[u, v], ...]],       // 遮罩外輪廓（像素）
    "metrics": {"energy": 1.93, "sync_velocity": 0.58, ..., "height": null},  // 資料不足時為 null

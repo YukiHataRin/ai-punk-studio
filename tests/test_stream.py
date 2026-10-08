@@ -58,6 +58,14 @@ class MessageTest(unittest.TestCase):
         self.assertNotIn("contour", lean["people"][0])
         self.assertNotIn("pixels", lean["people"][0])
 
+    def test_undetected_joints_are_null(self):
+        out = fake_output()
+        out.people[0].pose.visibility[[3, 4]] = 0.2  # 兩耳沒偵測到
+        p = frame_message(out, {}, 0, 0, {"contours": False})["people"][0]
+        self.assertEqual((len(p["joints"]), len(p["pixels"])), (26, 26))
+        self.assertEqual((p["joints"][3], p["pixels"][4]), (None, None))
+        self.assertEqual(p["joints"][0], [0.0, 0.0, 2.0])
+
     def test_tiny_blobs_are_dropped(self):
         mask = np.zeros((100, 100), bool)
         mask[1:4, 1:4] = True
