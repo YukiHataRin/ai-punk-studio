@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-    QScrollArea, QVBoxLayout, QWidget,
+    QScrollArea, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from ..config import PROJECT_ROOT, resolve
@@ -20,7 +20,8 @@ from .camera_discovery import CameraDiscovery
 from ..render.overlay import draw_contours, draw_depth, draw_masks, draw_people
 from .theme import BAD, FAINT, OK, WARN
 from .widgets.inspector import PIPELINE_KEYS, Inspector
-from .widgets.people_panel import PeoplePanel
+from .widgets.metrics_charts import MetricsCharts
+from .widgets.metrics_table import MetricsTable
 from .widgets.viewport import Viewport
 
 MODES = (("overlay", "疊圖"), ("split", "並排 3D"), ("depth", "深度"), ("skeleton", "僅骨架"), ("contour", "僅輪廓"))
@@ -85,7 +86,9 @@ class MainWindow(QMainWindow):
         # ---- 工作區 ----
         workspace = QHBoxLayout()
         workspace.setSpacing(18)
-        left = QVBoxLayout()
+        overview = QWidget()  # 「總覽」分頁
+        left = QVBoxLayout(overview)
+        left.setContentsMargins(0, 8, 0, 0)
         left.setSpacing(10)
 
         modes = QHBoxLayout()
@@ -119,12 +122,17 @@ class MainWindow(QMainWindow):
             views.addWidget(self.view3d, 2)
         left.addLayout(views, 1)
 
-        people_title = QLabel("畫面中的人")
+        people_title = QLabel("畫面中的人與動作指標")
         people_title.setObjectName("section")
         left.addWidget(people_title)
-        self.people = PeoplePanel()
-        left.addWidget(self.people)
-        workspace.addLayout(left, 1)
+        self.metrics_table = MetricsTable()
+        left.addWidget(self.metrics_table)
+
+        self.charts = MetricsCharts()  # 「指標」分頁
+        self.tabs = QTabWidget()
+        self.tabs.addTab(overview, "總覽")
+        self.tabs.addTab(self.charts, "指標")
+        workspace.addWidget(self.tabs, 1)
 
         self.inspector = Inspector(cfg)
         self.inspector.changed.connect(self.on_setting)
@@ -292,6 +300,7 @@ class MainWindow(QMainWindow):
             self.status.setText("尋找攝影機中，找到後自動開始…")
             return
         self.viewport.clear()
+        self.charts.clear()
         self.status.setText("啟動中…")
         source_factory = None
         if self.playback:
@@ -391,7 +400,8 @@ class MainWindow(QMainWindow):
         self.viewport.set_frame(self.last_image)
         if self.view3d is not None and self.view3d.isVisible():
             self.view3d.show_people(out.people, self.display["point_cloud"])
-        self.people.show_people(out.people)
+        self.metrics_table.show_people(out.people)
+        self.charts.add_frame(out.people, time.monotonic(), out.frame)
         self.inspector.show_metrics(out, metrics)
         self.last_has_depth = metrics.get("has_depth", True)
         self.set_chips(True, metrics["depth"], metrics["fps"], self.last_has_depth)

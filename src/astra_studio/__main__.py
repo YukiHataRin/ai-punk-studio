@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--screenshot", metavar="PATH", help=argparse.SUPPRESS)  # 開發用：延遲後存視窗截圖並結束
     parser.add_argument("--screenshot-delay", type=float, default=12, help=argparse.SUPPRESS)
     parser.add_argument("--view", choices=["overlay", "split", "depth", "skeleton", "contour"], help="初始畫面模式")
+    parser.add_argument("--tab", choices=["overview", "metrics"], help="初始分頁：總覽或指標")
     args = parser.parse_args()
     cfg = load_config(args.config)
     if args.ws_host:
@@ -66,6 +67,8 @@ def main():
     window.show()
     if args.view:
         window.select_mode(args.view)
+    if args.tab == "metrics":
+        window.tabs.setCurrentWidget(window.charts)
     if args.start:
         QTimer.singleShot(0, window.start)
     if args.screenshot:

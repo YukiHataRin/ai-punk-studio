@@ -10,6 +10,7 @@ import numpy as np
 from .colors import hex_to_bgr, track_hex
 
 DIM = 0.4  # 推估關節的亮度倍率
+MIN_VISIBILITY = 0.5  # 骨架模型判斷沒偵測到（例如在畫面外被猜出來）的關節，3D 不畫
 
 
 def to_gl(points):
@@ -40,20 +41,27 @@ def build_scene(people, point_cloud=False):
         tid = person.track_id
         bright, dim = rgba(tid), rgba(tid, 1.0, DIM)
         sk = person.skeleton
-        if sk is not None:
+        detected = (person.pose.visibility >= MIN_VISIBILITY) if person.pose is not None else None
+        if sk is not None and (detected is None or detected.any()):
             pts = to_gl(sk.points)
             fmt = sk.fmt
+            if detected is None:
+                detected = np.ones(len(pts), bool)
             for a, b in fmt.connections:
-                if a in fmt.face or b in fmt.face:  # 臉部連線在 3D 裡太擠，省略
+                if a in fmt.face or b in fmt.face or not (detected[a] and detected[b]):  # 臉部太擠、沒偵測到的不畫
                     continue
                 lines += [pts[a], pts[b]]
                 c = bright if sk.measured[a] and sk.measured[b] else dim
                 lcol += [c, c]
-            body = np.array(fmt.body)
-            joints.append(pts[body])
-            jcol.append(np.where(sk.measured[body, None], bright, dim))
-            ankles += [pts[j, 2] for j in fmt.ankles if sk.measured[j]]
-            head = pts[fmt.head] + [0, 0, 0.25]
+            body = np.array([j for j in fmt.body if detected[j]])
+            if len(body):
+                joints.append(pts[body])
+                jcol.append(np.where(sk.measured[body, None], bright, dim))
+            ankles += [pts[j, 2] for j in fmt.ankles if sk.measured[j] and detected[j]]
+            # 標籤放在頭上；頭沒偵測到時放在最高的已偵測關節上方
+            seen = pts[detected]
+            top = pts[fmt.head] if detected[fmt.head] else seen[np.argmax(seen[:, 2])]  # GL 座標 z 向上
+            head = top + [0, 0, 0.25]
         elif person.centroid is not None:
             c = to_gl(person.centroid)[0]
             joints.append(c[None])

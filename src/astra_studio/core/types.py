@@ -52,6 +52,7 @@ class TrackedPerson:
     skeleton: Skeleton3D | None = None
     centroid: np.ndarray | None = None  # (3,) 遮罩深度中位數換算的 3D 位置（公尺）
     cloud: np.ndarray | None = None     # (N, 3) 遮罩內深度點雲（公尺，可選）
+    metrics: dict | None = None         # 九項舞蹈動作指標（core/dance_metrics.py），沒有骨架時為 None
 
     @property
     def distance(self):
@@ -60,6 +61,14 @@ class TrackedPerson:
         if self.centroid is not None:
             return float(np.linalg.norm(self.centroid))
         return None
+
+    @property
+    def metrics_measured(self):
+        """指標用到的 13 個關節中，有沒有任何一個由深度實測；False 表示指標完全來自推估骨架。"""
+        if self.skeleton is None:
+            return False
+        from .dance_metrics import metric_joint_coverage
+        return metric_joint_coverage(self.skeleton)[0] > 0
 
     @property
     def distance_measured(self):

@@ -3,6 +3,14 @@
 版本號採 [語意化版本](https://semver.org/lang/zh-TW/)：`主版號.次版號.修訂號`。
 每個版本在 GitHub 上都有對應的 tag（例如 `v0.4.0`），可用 `git checkout v0.4.0` 切換。
 
+## 0.6.0 — 舞蹈動作指標
+- 整合 [Real-time Dance Aesthetics Analysis](https://github.com/YukiHataRin/realtime-dance-analysis) 的九項動作指標，改為每位舞者各自計算，並使用深度相機的公尺座標
+- 指標只使用 13 個關節（鼻、肩、肘、腕、髖、膝、踝）；重心高度改為離地高度（地板由實測腳踝估計）
+- 總覽頁新增指標表格；新增「指標」分頁：九項指標即時曲線，左側為每位舞者的照片（代表色外框）
+- 錄製、CSV（新增 metrics.csv）、WebSocket 串流與瀏覽器檢視頁都包含指標
+- 3D 視圖不再畫出骨架模型沒偵測到的關節
+- 修正表格顏色被主題樣式表覆蓋
+
 ## 0.5.0 — 跨平台
 - 支援 Linux（Ubuntu）與 Windows：攝影機後端依平台（AVFoundation / V4L2 / Media Foundation）
 - RTMPose 推論後端 `auto`：macOS 用 CoreML、有 onnxruntime-gpu 時用 CUDA、其餘 CPU

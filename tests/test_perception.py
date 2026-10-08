@@ -117,6 +117,10 @@ class PipelineTest(unittest.TestCase):
         self.assertAlmostEqual(float(p.centroid[2]), 2.2, delta=0.05)
         for key in ("segmentation", "pose", "fusion", "total"):
             self.assertIn(key, outs[-1].timings)
+        from astra_studio.core.dance_metrics import METRIC_KEYS
+        self.assertEqual(set(p.metrics), set(METRIC_KEYS))
+        self.assertLess(p.metrics["energy"], 5.0)  # 靜止影像：只剩模型的微小抖動
+        self.assertIsNotNone(p.metrics["expansion"])
 
     def test_gpu_memory_does_not_grow(self):
         """回歸測試：mediapipe GPU delegate 曾每幀洩漏約 14 MB Metal 記憶體，30 fps 下一分鐘內耗盡。"""

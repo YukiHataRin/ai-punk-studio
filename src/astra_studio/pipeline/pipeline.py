@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..core.fusion import associate, depth_mask, mask_centroid, mask_points, match_previous_boxes
+from ..core.dance_metrics import DanceMetrics
 from ..core.geometry import Intrinsics
 from ..core.lift import lift_person
 from ..core.registration import DepthToRgb
@@ -50,6 +51,7 @@ class Pipeline:
         self.rgb_k = Intrinsics.from_config(cfg["rgb"])
         self.pose_tracker = PoseTracker(cfg["smoothing"], cfg["rgb"]["width"])
         self.smoother = SkeletonSmoother(cfg["smoothing"])
+        self.dance = DanceMetrics()  # 每位舞者的九項動作指標
 
         # RTMPose 需要 YOLO 的人框；關閉分割時退回 MediaPipe
         backend = cfg["pose"].get("backend", "rtmpose")
@@ -110,6 +112,9 @@ class Pipeline:
         t1 = time.perf_counter()
         people = [self.smoother.smooth(p, stamp) for p in self._fuse(poses, pairs, seg, reg_depth, stamp)]
         self.smoother.prune(stamp)
+        metrics = self.dance.update(people, stamp)  # 用平滑後的骨架算：導數（尤其急動度）對抖動很敏感
+        for p in people:
+            p.metrics = metrics.get(p.track_id)
         t2 = time.perf_counter()
 
         return FrameOutput(frame, reg_depth, seg, sorted(people, key=lambda p: p.track_id), {
@@ -152,6 +157,7 @@ class Pipeline:
         """切換追蹤開關或換來源時呼叫：清掉所有 ID 與平滑狀態。"""
         self.pose_tracker.reset()
         self.smoother.reset()
+        self.dance.reset()
         self._prev_boxes = []
         if self.segmenter:
             self._seg_thread.submit(self.segmenter.reset).result()

@@ -19,6 +19,7 @@ import cv2
 import numpy as np
 
 from ..config import PROJECT_ROOT
+from ..core.dance_metrics import metric_joint_coverage
 
 FORMAT_VERSION = 1
 
@@ -40,6 +41,9 @@ def person_record(p):
         rec["visibility"] = _r(p.pose.visibility, 3)
     if p.segment is not None:
         rec["box"] = _r(p.segment.box, 1)
+    if p.metrics is not None:
+        rec["metrics"] = {k: None if v is None else round(v, 5) for k, v in p.metrics.items()}
+        rec["metric_joints_measured"] = metric_joint_coverage(p.skeleton)[0]  # 指標用的 13 個關節中實測幾個
     return rec
 
 

@@ -17,7 +17,7 @@ from astra_studio.pipeline.pipeline import FrameOutput
 from astra_studio.sensors.playback import PlaybackSource
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from export_skeleton_csv import export  # noqa: E402
+from export_skeleton_csv import export, export_metrics  # noqa: E402
 
 CFG = load_config()
 N = 12
@@ -28,7 +28,8 @@ def synthetic(i):
     depth = np.full((480, 640), 1000 + i, np.uint16)
     pts = np.c_[np.zeros(33), np.linspace(-0.8, 0.9, 33), np.full(33, 2.0)].astype(np.float32)
     pose = PoseObservation(np.zeros((33, 2), np.float32), np.ones(33, np.float32), np.zeros((33, 3), np.float32))
-    people = [TrackedPerson(3, None, pose, Skeleton3D(pts, np.ones(33, bool), 2.0), pts.mean(0)),
+    people = [TrackedPerson(3, None, pose, Skeleton3D(pts, np.ones(33, bool), 2.0), pts.mean(0),
+                            metrics={"energy": 0.5 + i, "height": None}),
               TrackedPerson(5, None, None, None, np.array([1.0, 0.0, 3.0], np.float32))]  # 只有遮罩位置
     return frame, depth, FrameOutput(frame, depth, SegmentationResult(), people, {})
 
@@ -66,6 +67,7 @@ class RecorderTest(unittest.TestCase):
         p3, p5 = recs[0]["people"]
         self.assertEqual(len(p3["joints"]), 33)
         self.assertEqual(p3["format"], "mediapipe33")
+        self.assertEqual(p3["metric_joints_measured"], 13)
         self.assertTrue(p3["distance_measured"])
         self.assertNotIn("joints", p5)
         self.assertEqual(p5["centroid"], [1.0, 0.0, 3.0])
@@ -75,6 +77,11 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(rows, N * 33)  # 只有 ID 3 有骨架
         header = path.read_text(encoding="utf-8").splitlines()[0]
         self.assertEqual(header, "frame,t,id,joint,joint_name,x,y,z,measured")
+        path, rows = export_metrics(self.dir)
+        self.assertEqual(rows, N)  # ID 5 只有遮罩，沒有指標
+        lines = path.read_text(encoding="utf-8").splitlines()
+        self.assertTrue(lines[0].startswith("frame,t,id,distance,distance_measured,energy,"))
+        self.assertTrue(lines[2].startswith("1,0.0333,3,2.0,1,1.5,"))
 
     def test_playback(self):
         src = PlaybackSource(self.dir).start()

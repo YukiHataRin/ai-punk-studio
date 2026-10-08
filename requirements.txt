@@ -8,6 +8,7 @@ torch>=2.7
 torchvision>=0.22
 ultralytics>=8.3,<9
 lap>=0.5.12
+scipy>=1.11          # 舞蹈指標的凸包體積
 onnxruntime>=1.20   # RTMPose 推論（CoreML / CPU）
 websockets>=14,<18  # WebSocket 串流
 cv2-enumerate-cameras>=1.4,<2

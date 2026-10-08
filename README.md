@@ -12,7 +12,8 @@ YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度�
 - **由上而下逐人估計**：先用 YOLO 框出每個人，再對每個人各跑一次 RTMPose；骨架直接屬於該人的 ID，多人時不會互相跳動
 - **人體分割與穩定 ID**：YOLO11 像素級遮罩 + BoT-SORT（ReID），人交錯或短暫遮擋仍保留同一 ID
 - **遮罩內取深度**：關節深度只取自己遮罩內的值，前方的人或背景不會混進來；被擋住的關節改用推估
-- **即時介面**：疊圖／並排 3D／深度／僅骨架／僅輪廓五種模式、可旋轉 3D 視圖（含點雲）、每人卡片、即時調參
+- **九項舞蹈動作指標**：每位舞者各自計算動作強度、左右平衡與協調、身體擴展、軌跡曲率、重心高度與晃動、出力程度、急動度
+- **即時介面**：總覽頁（五種畫面模式、可旋轉 3D 視圖、指標表格）與指標頁（每人照片＋九項指標即時曲線）、即時調參
 - **任何攝影機都能用**：介面可選攝影機；選 Astra Pro 為深度實測，選一般 webcam 時 3D 改由身體尺寸估計
 - **WebSocket 串流與 headless 伺服器**：每幀推送 ID、距離、3D／2D 關節與輪廓；可不開視窗只當伺服器
 - **錄製與回放**：RGB 影片 + 16-bit 深度 + 每幀 3D 骨架，可不接相機回放，骨架可轉 CSV
@@ -126,13 +127,41 @@ $env:PYTHONNOUSERSITE = "1"
 |---|---|
 | 上方 | RGB / 深度連線燈號、處理 fps |
 | 主畫面 | **疊圖**：RGB + 遮罩 + 2D 骨架 + ID／距離<br>**並排 3D**：左疊圖、右 3D 視圖（左鍵拖曳旋轉、滾輪縮放）<br>**深度**：對齊後深度疊在 RGB 上，檢查對齊<br>**僅骨架**：黑底骨架<br>**僅輪廓**：黑底，只畫每人遮罩外框 |
-| 人物卡片 | 每個 ID 一張：距離、實測關節數（顏色與畫面中一致）|
+| 指標表格 | 每位舞者一列：ID、距離、實測關節（指標用的 13 個）、九項指標；灰色表示指標來自推估骨架 |
+| 指標分頁 | 左側每位舞者的照片（外框為代表色，已離開的變暗），右側九項指標最近 20 秒的曲線 |
 | 右側設定 | 圖層開關、分割信心值、BoT-SORT 開關、骨架模型（RTMPose-m 或 MediaPipe）、平滑強度、遮罩取樣、對齊微調、各階段耗時 |
 | 下方 | 狀態、**● 錄製**、截圖 |
 
 - 實心關節點 = 深度實測，空心 = 推估
 - 距離前有 **≈**（OpenCV 畫面為 `~`）表示這個人完全沒量到深度（太近 < 0.4 m、太遠或被遮擋），數值為推估
 - ID 由 BoT-SORT 產生並持續遞增（例如 ID 54），只代表「同一個人」，不是人數
+
+## 舞蹈動作指標
+
+移植自 [Real-time Dance Aesthetics Analysis](https://github.com/YukiHataRin/realtime-dance-analysis)
+（MIT License，Yeh, Lin, Jiang 2026，[DOI 10.5281/zenodo.22747639](https://doi.org/10.5281/zenodo.22747639)；授權全文見 `licenses/`），
+改為**每位舞者各自計算**，並使用深度相機量到的公尺座標。指標是動作的**描述值**，例如「出力程度」是角加速度的代理指標，不是力感測器量到的力矩。
+
+| 指標 | 單位 | 說明 |
+|---|---|---|
+| 動作強度 | rad²/s² | 肢體角速度平方的加權和，越大動作越激烈 |
+| 左右平衡 | 0–1 | 左右兩側角速度大小的相似度，1 為完全平衡 |
+| 左右協調 | −1–1 | 左右動作歷史的相關係數，1 為同步、−1 為交替 |
+| 身體擴展 | m³ | 關節凸包體積，越大身體越舒展 |
+| 軌跡曲率 | 1/m | 手腕、腳踝軌跡的平均曲率，越大動作越圓轉 |
+| 重心高度 | m | 重心離地高度（需要深度量到腳踝才有值） |
+| 重心晃動 | m | 重心偏離兩腳中點的水平距離 |
+| 出力程度 | rad/s² | 肢體角加速度的加權和 |
+| 急動度 | rad²/s⁶ | 角急動度平方的加權和，越低越流暢 |
+
+- **只用 13 個關節**：鼻、雙肩、雙肘、雙腕、雙髖、雙膝、雙踝（再推算出骨盆、脊椎、胸、頸）。臉、手指、腳掌都不參與；
+  表格的「實測關節」只計這 13 個，**全部沒量到深度時該列顯示為灰色**，表示指標來自推估骨架
+- **與原專案的差異**：公尺單位（擴展度為 m³）、以實際時間戳計算導數、重心高度改為離地高度、曲率在速度過慢時不計、
+  扁平骨架（沒有深度時所有關節在同一深度平面）的擴展度回報 0；其餘公式、肢體與質量權重與原專案相同
+- 指標用平滑後的骨架計算；導數越高階越敏感，**急動度對抖動特別敏感**。人站得越遠、全身入鏡、深度量得越完整，數值越穩定
+- 匯出：`tools/export_skeleton_csv.py` 會同時輸出 `metrics.csv`（每列一位舞者一幀）
+
+> 展出時請避免讓**螢幕、海報上的人像**出現在相機畫面中：YOLO 無法區分螢幕裡的人與真人，也會為他們建立 ID 與指標。
 
 ## WebSocket 串流與 Headless 伺服器
 
@@ -170,6 +199,7 @@ JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`�
 ```jsonc
 // hello：連線時與來源切換時
 {"type": "hello", "protocol": 1, "image": {"width": 1280, "height": 720},
+ "metrics": [{"key": "energy", "name": "動作強度", "unit": "rad²/s²", "description": "..."}, ...],  // 指標定義
  "intrinsics": {"fx": 983.0, "fy": 984.0, "cx": 640.0, "cy": 360.0}, "has_depth": true,
  "formats": {"halpe26": {"names": ["nose", ...], "connections": [[0, 1], ...]}, "mediapipe33": {...}}}
 
@@ -184,7 +214,9 @@ JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`�
    "measured": [1, 1, 0, ...],       // 每個關節是否深度實測
    "pixels": [[u, v], ...], "visibility": [0.98, ...],   // 2D 關節與信心值
    "box": [x1, y1, x2, y2],
-   "contour": [[[u, v], ...]]        // 遮罩外輪廓多邊形（像素），可能有多段
+   "contour": [[[u, v], ...]],       // 遮罩外輪廓多邊形（像素），可能有多段
+   "metrics": {"energy": 1.93, "sync_velocity": 0.58, ..., "height": null},  // 九項指標，資料不足時為 null
+   "metric_joints_measured": 11      // 指標用的 13 個關節中實測幾個
  }]}
 ```
 
@@ -259,7 +291,7 @@ JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`�
 ```
 ├── config/            default.toml（所有參數）、botsort_reid.yaml
 ├── src/astra_studio/
-│   ├── core/          純演算法（不依賴 Qt / torch / mediapipe）：對齊、融合、3D 提升、平滑
+│   ├── core/          純演算法（不依賴 Qt / torch / mediapipe）：對齊、融合、3D 提升、平滑、舞蹈指標
 │   ├── sensors/       Astra Pro 擷取、一般攝影機、錄製回放、相機列舉
 │   ├── perception/    YOLO11 分割 + BoT-SORT、RTMPose 逐人骨架、MediaPipe Pose、推論裝置選擇
 │   ├── pipeline/      單幀流程、擷取迴圈 runner（不依賴 Qt）、Qt 背景 worker
@@ -267,7 +299,8 @@ JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`�
 │   ├── io/            錄製、WebSocket 串流伺服器
 │   ├── ui/            PySide6 介面（主視窗、3D 視圖、人物卡片、設定面板）
 │   └── apps/          headless 伺服器、OpenCV 簡易檢視器
-├── tests/             core / perception / ui / io 測試
+├── tests/             core / dance_metrics / perception / ui / io / stream 測試
+├── licenses/          第三方授權（Real-time Dance Aesthetics Analysis，MIT）
 ├── tools/             ws_client.py、export_skeleton_csv.py、preview.py、make_architecture_figure.py
 ├── examples/          web_viewer.html（瀏覽器即時檢視串流）
 ├── scripts/           download_models.py（跨平台模型下載）
@@ -320,10 +353,11 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
 - [Ultralytics](https://github.com/ultralytics/ultralytics)：YOLO11 實例分割與追蹤整合
 - [BoT-SORT](https://github.com/NirAharon/BoT-SORT)：多目標追蹤與 ReID
 - [PySide6](https://doc.qt.io/qtforpython-6/)、[qt-material](https://github.com/UN-GCPDS/qt-material)、[pyqtgraph](https://github.com/pyqtgraph/pyqtgraph)：介面與 3D 視圖
+- [Real-time Dance Aesthetics Analysis](https://github.com/YukiHataRin/realtime-dance-analysis)：九項舞蹈動作指標（MIT License）
 - [websockets](https://github.com/python-websockets/websockets)：WebSocket 串流伺服器（BSD-3-Clause）
 - [Human Mask Studio](https://github.com/YukiHataRin/human_semantic_segmentation)：分割引擎、相機列舉與介面風格的來源
 - One Euro Filter：Casiez, Roussel & Vogel, *1€ Filter: A Simple Speed-based Low-pass Filter for Noisy Input in Interactive Systems*, CHI 2012
 
 ## 授權
 
-[AGPL-3.0](LICENSE)。本專案使用的 Ultralytics YOLO 以 AGPL-3.0 授權；RTMPose、MediaPipe、pyorbbecsdk 為 Apache-2.0。
+[AGPL-3.0](LICENSE)。本專案使用的 Ultralytics YOLO 以 AGPL-3.0 授權；RTMPose、MediaPipe、pyorbbecsdk 為 Apache-2.0；舞蹈指標移植自 MIT 授權的 Real-time Dance Aesthetics Analysis（授權全文見 `licenses/`）。

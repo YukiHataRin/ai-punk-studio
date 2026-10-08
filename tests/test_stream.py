@@ -29,7 +29,7 @@ def fake_output():
     pose = PoseObservation(np.full((26, 2), 500, np.float32), np.ones(26, np.float32), None, HALPE26)
     pts = np.tile([0.0, 0.0, 2.0], (26, 1)).astype(np.float32)
     sk = Skeleton3D(pts, np.ones(26, bool), 2.0, HALPE26)
-    person = TrackedPerson(5, seg, pose, sk, pts[0])
+    person = TrackedPerson(5, seg, pose, sk, pts[0], metrics={"energy": 1.234567, "height": None})
     return FrameOutput(np.zeros((720, 1280, 3), np.uint8), np.zeros((360, 640), np.uint16),
                        SegmentationResult([seg]), [person], {})
 
@@ -50,6 +50,7 @@ class MessageTest(unittest.TestCase):
         self.assertEqual((msg["type"], msg["frame"], msg["fps"], msg["t"]), ("frame", 7, 29.9, 1.2346))
         p = msg["people"][0]
         self.assertEqual((p["id"], p["format"], len(p["joints"])), (5, "halpe26", 26))
+        self.assertEqual(p["metrics"], {"energy": 1.23457, "height": None})
         poly = np.array(p["contour"][0])
         self.assertTrue((poly[:, 0] >= 399).all() and (poly[:, 0] <= 600).all())
         self.assertEqual(len(poly), 4)  # 矩形遮罩簡化後剩 4 個角
@@ -76,6 +77,7 @@ class ServerTest(unittest.TestCase):
             hello = recv_type(ws, "hello")
             self.assertFalse(hello["has_depth"])
             self.assertEqual(len(hello["formats"]["halpe26"]["names"]), 26)
+            self.assertEqual([m["key"] for m in hello["metrics"]][:2], ["energy", "sync_velocity"])
             deadline = time.monotonic() + 2
             while self.server.client_count == 0 and time.monotonic() < deadline:
                 time.sleep(0.01)

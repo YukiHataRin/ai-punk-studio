@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
 from astra_studio.config import load_config
+from astra_studio.core.dance_metrics import METRIC_KEYS, METRICS
 from astra_studio.core.skeleton_format import MEDIAPIPE33
 from astra_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
 from astra_studio.pipeline.pipeline import FrameOutput
@@ -35,7 +36,9 @@ def fake_output(n_people=2):
         measured = np.arange(33) % 3 != 0
         sk = Skeleton3D(pts, measured, 2.0 + i)
         segs.append(seg)
-        people.append(TrackedPerson(i + 1, seg, pose, sk, pts.mean(0), pts))
+        metrics = {k: 0.5 * (i + 1) for k in METRIC_KEYS}
+        metrics["height"] = None  # 還沒估到地板
+        people.append(TrackedPerson(i + 1, seg, pose, sk, pts.mean(0), pts, metrics))
     people.append(TrackedPerson(9, segs[0], None, None, np.array([0.5, 0.0, 3.0], np.float32)))  # 只有遮罩
     return FrameOutput(frame, np.full((360, 640), 2000, np.uint16), SegmentationResult(segs, 20.0), people,
                        {"segmentation": 20.0, "pose": 10.0, "fusion": 1.2, "total": 25.0})
@@ -72,6 +75,21 @@ class SceneTest(unittest.TestCase):
     def test_gl_axes(self):
         np.testing.assert_allclose(to_gl([[1, 2, 3]]), [[1, 3, -2]])
 
+    def test_undetected_joints_are_not_drawn_in_3d(self):
+        out = fake_output()
+        p = out.people[0]
+        p.pose.visibility[:] = 1.0
+        full = build_scene([p])
+        p.pose.visibility[25:] = 0.1  # 膝以下沒偵測到（例如在畫面外）
+        partial = build_scene([p])
+        self.assertEqual(len(partial.joints), len(full.joints) - 8)
+        self.assertLess(len(partial.lines), len(full.lines))
+        p.pose.visibility[:] = 0.0  # 關節全都沒偵測到：不畫骨架，改用遮罩深度的位置標記（同「只有遮罩」的人）
+        scene = build_scene([p])
+        self.assertEqual(len(scene.lines), 0)
+        self.assertEqual(len(scene.joints), 1)
+        self.assertEqual(len(scene.labels), 1)
+
     def test_scene_contents(self):
         scene = build_scene(fake_output().people, point_cloud=True)
         self.assertEqual(len(scene.lines) % 2, 0)
@@ -92,14 +110,53 @@ class MainWindowTest(unittest.TestCase):
         w.start()
         w.refresh()
         self.assertIsNotNone(w.last_image)
-        self.assertEqual(sorted(w.people.cards), [1, 2, 9])
-        self.assertIn("僅遮罩", w.people.cards[9].note.text())
+        table = w.metrics_table
+        self.assertEqual(table.rowCount(), 3)
+        self.assertEqual([table.item(r, 0).text() for r in range(3)], ["● 1", "● 2", "● 9"])
+        self.assertEqual(table.item(2, 2).text(), "僅遮罩")
+        energy_col = 3 + [m.key for m in METRICS].index("energy")
+        height_col = 3 + [m.key for m in METRICS].index("height")
+        self.assertEqual(table.item(1, energy_col).text(), "1.000")
+        self.assertEqual(table.item(0, height_col).text(), "—")
+        self.assertEqual(table.item(2, energy_col).text(), "—")
+        from astra_studio.render.colors import track_hex
+        from astra_studio.ui.theme import FAINT, TEXT
+        self.assertEqual(table.item(1, 0).foreground().color().name(), track_hex(2).lower())  # ID 用代表色
+        self.assertEqual(table.item(0, 2).text(), "8/13")  # 只算指標用的 13 個關節
+        self.assertEqual(table.item(0, energy_col).foreground().color().name(), TEXT.lower())
         self.assertEqual(w.inspector.metrics["people"].text(), "3")
         self.assertIn("29.5", w.chips["fps"].text())
         self.assertEqual(w.inspector.start.text(), "停止")
         w.stop()
         self.assertIsNone(w.worker)
         self.assertEqual(w.inspector.start.text(), "開始")
+        w.close()
+
+    def test_metrics_tab_draws_a_curve_per_person(self):
+        w = self.make()
+        w.start()
+        w.tabs.setCurrentWidget(w.charts)
+        out = fake_output()
+        for i in range(5):
+            w.charts.add_frame(out.people, 100.0 + i / 30, out.frame)
+        w.charts.redraw(100.0 + 4 / 30)
+        self.assertEqual(set(w.charts.history), {1, 2})  # 只有遮罩的人沒有指標
+        self.assertEqual(set(w.charts.tiles), {1, 2})     # 每位舞者一張照片
+        self.assertFalse(w.charts.tiles[1].photo.pixmap().isNull())
+        w.charts.add_frame(out.people[:1], 101.0, out.frame)  # ID 2 離開畫面，但曲線還在 20 秒內
+        self.assertEqual(w.charts.tiles[2].note.text(), "已離開")
+        layout = w.charts.legend_layout
+        self.assertIs(layout.itemAt(0).widget(), w.charts.tiles[1])  # 畫面中的人排在已離開的人前面
+        self.assertIs(layout.itemAt(1).widget(), w.charts.tiles[2])
+        self.assertEqual(len(w.charts.curves), 2 * len(METRICS))
+        xs, ys = w.charts.curves[(2, "energy")].getData()
+        self.assertEqual(len(ys), 5)
+        self.assertAlmostEqual(float(ys[-1]), 1.0)
+        w.charts.add_frame(out.people[:1], 200.0, out.frame)  # 超過 20 秒視窗：ID 2 的線與照片都清掉
+        self.assertEqual(set(w.charts.history), {1})
+        self.assertNotIn((2, "energy"), w.charts.curves)
+        self.assertEqual(set(w.charts.tiles), {1})
+        w.stop()
         w.close()
 
     def test_pipeline_settings_reach_worker_and_display_settings_do_not(self):

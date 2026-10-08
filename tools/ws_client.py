@@ -18,7 +18,8 @@ def summary(msg):
     for p in msg["people"]:
         dist = "—" if p["distance"] is None else f"{'' if p['distance_measured'] else '≈'}{p['distance']:.2f} m"
         joints = f"{sum(p['measured'])}/{len(p['measured'])} 實測" if "measured" in p else "僅遮罩"
-        people.append(f"ID {p['id']} {dist}（{joints}）")
+        energy = (p.get("metrics") or {}).get("energy")
+        people.append(f"ID {p['id']} {dist}（{joints}）" + ("" if energy is None else f" 強度 {energy:.2f}"))
     return f"#{msg['frame']:5d}  {msg['fps']:4.1f} fps  " + ("、".join(people) if people else "沒有人")
 
 

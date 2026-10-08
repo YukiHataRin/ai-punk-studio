@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 
 from .colors import track_bgr
+from .scene3d import MIN_VISIBILITY
 
 
 class Orbit3DView:
@@ -80,12 +81,15 @@ class Orbit3DView:
                     if ok[0]:
                         cv2.circle(img, tuple(uv[0]), 6, color, 2, cv2.LINE_AA)
                 continue
+            detected = (person.pose.visibility >= MIN_VISIBILITY) if person.pose is not None else np.ones(len(sk.points), bool)
             for a, b in sk.fmt.connections:
+                if not (detected[a] and detected[b]):  # 沒偵測到的關節不畫
+                    continue
                 both = sk.measured[a] and sk.measured[b]
                 self._line(img, sk.points[a], sk.points[b], color if both else dim, 2)
             uv, ok = self._project(sk.points)
             for j in range(len(uv)):
-                if ok[j]:
+                if ok[j] and detected[j]:
                     cv2.circle(img, tuple(uv[j]), 3, color if sk.measured[j] else dim, -1, cv2.LINE_AA)
 
         cv2.putText(img, "3D  drag: rotate  wheel: zoom  r: reset", (10, self.size - 12),

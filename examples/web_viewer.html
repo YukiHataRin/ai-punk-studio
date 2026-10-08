@@ -19,6 +19,12 @@
   figcaption { color: var(--muted); font-size: 12px; padding: 4px 2px 0; }
   canvas { width: 100%; display: block; background: #101b23; border-radius: 6px; }
   #people { grid-column: 1 / -1; color: var(--muted); }
+  .table-wrap { grid-column: 1 / -1; overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  th small { display: block; color: #78939f; font-weight: 400; }
+  td.estimated { color: #78939f; }
 </style>
 </head>
 <body>
@@ -32,6 +38,7 @@
   <figure><canvas id="front" width="1280" height="720"></canvas><figcaption>輪廓與 2D 骨架（RGB 影像座標）</figcaption></figure>
   <figure><canvas id="top" width="600" height="600"></canvas><figcaption>俯視圖：x（左右）× z（距離），每格 0.5 m</figcaption></figure>
   <div id="people"></div>
+  <div class="table-wrap"><table><thead id="metrics-head"></thead><tbody id="metrics-body"></tbody></table></div>
 </main>
 <script>
 const COLORS = ["#22D3EE", "#FB7185", "#A78BFA", "#FBBF24", "#34D399", "#F97316", "#60A5FA", "#E879F9"];
@@ -52,8 +59,10 @@ function connect() {
       hello = msg;
       $("front").width = msg.image.width; $("front").height = msg.image.height;
       $("status").textContent = `已連線：${msg.image.width}×${msg.image.height}，` + (msg.has_depth ? "有深度" : "沒有深度（3D 為估計）");
+      $("metrics-head").innerHTML = "<tr><th>ID</th><th>距離</th>" + (msg.metrics || []).map(m =>
+        `<th title="${m.description}">${m.name}<small>${m.unit}</small></th>`).join("") + "</tr>";
     } else if (msg.type === "frame" && hello) {
-      drawFront(msg); drawTop(msg);
+      drawFront(msg); drawTop(msg); drawTable(msg);
       $("people").textContent = `#${msg.frame} · ${msg.fps} fps · ` + (msg.people.map(p =>
         `ID ${p.id} ${p.distance == null ? "—" : (p.distance_measured ? "" : "≈") + p.distance.toFixed(2) + " m"}`).join("、") || "沒有人");
     }
@@ -108,6 +117,26 @@ function drawTop(msg) {
     g.fillStyle = "#edf5f7"; g.font = "14px sans-serif";
     g.fillText(`ID ${p.id}${p.distance_measured ? "" : " ≈"}`, X(x) + 12, Z(z) + 5);
   }
+}
+
+function fmt(v) {
+  if (v == null) return "—";
+  const a = Math.abs(v);
+  if (a === 0) return "0";
+  if (a >= 1000) return v.toPrecision(3);
+  if (a >= 10) return v.toFixed(1);
+  if (a >= 0.01) return v.toFixed(3);
+  return v.toExponential(2);
+}
+
+function drawTable(msg) {
+  const defs = hello.metrics || [];
+  $("metrics-body").innerHTML = msg.people.map(p => {
+    const cls = p.distance_measured ? "" : ' class="estimated"';
+    const dist = p.distance == null ? "—" : (p.distance_measured ? "" : "≈") + p.distance.toFixed(2) + " m";
+    const cells = defs.map(m => `<td${cls}>${fmt(p.metrics ? p.metrics[m.key] : null)}</td>`).join("");
+    return `<tr><td style="color:${color(p.id)}">● ${p.id}</td><td${cls}>${dist}</td>${cells}</tr>`;
+  }).join("") || `<tr><td colspan="${defs.length + 2}" style="color:#78939f">畫面中沒有人</td></tr>`;
 }
 
 $("connect").onclick = connect;
