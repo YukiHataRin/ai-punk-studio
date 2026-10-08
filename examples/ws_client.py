@@ -1,8 +1,8 @@
 """WebSocket 串流的簡易用戶端：印出每幀的人物摘要（或原始 JSON）。
 
-    python tools/ws_client.py                          # 連 ws://127.0.0.1:8765
-    python tools/ws_client.py ws://192.168.1.20:8765 --frames 30
-    python tools/ws_client.py --json > stream.jsonl    # 存原始訊息
+    python examples/ws_client.py                          # 連 ws://127.0.0.1:8765
+    python examples/ws_client.py ws://192.168.1.20:8765 --frames 30
+    python examples/ws_client.py --json > stream.jsonl    # 存原始訊息
 """
 
 import argparse

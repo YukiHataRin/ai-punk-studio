@@ -1,4 +1,4 @@
-"""python -m aipunk_studio [--headless] [--camera NAME] [--ws] [--start] [--play DIR] [--list-cameras]"""
+"""python -m aipunk_studio [--headless] [--camera NAME] [--ws] [--start] [--play DIR] [--export DIR] [--list-cameras]"""
 
 import argparse
 import sys
@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--cv", action="store_true", help="改用 OpenCV 檢視器（開發用）")
     parser.add_argument("--list-cameras", action="store_true", help="列出相機名稱與裝置 ID")
     parser.add_argument("--play", metavar="DIR", help="回放錄製目錄（recordings/...），不需要相機")
+    parser.add_argument("--export", metavar="DIR", help="把錄製目錄的骨架與指標轉成 CSV 後結束")
     parser.add_argument("--headless", action="store_true", help="不開視窗，只擷取、計算並以 WebSocket 推送（Ctrl-C 結束）")
     parser.add_argument("--ws", action="store_true", help="介面模式也開啟 WebSocket 串流")
     parser.add_argument("--no-ws", action="store_true", help="headless 模式不開 WebSocket（例如只錄製）")
@@ -38,6 +39,15 @@ def main():
     if args.ws:
         cfg["stream"]["enabled"] = True
 
+    if args.export:
+        from .io.export import export_session
+        try:
+            results = export_session(args.export)
+        except FileNotFoundError as e:
+            sys.exit(str(e))
+        for path, rows in results:
+            print(f"已輸出 {rows} 列：{path}")
+        return
     if args.list_cameras:
         from .sensors.discovery import discover_cameras
         for camera in discover_cameras():
@@ -52,32 +62,10 @@ def main():
         run(cfg, segmentation=not args.no_seg)
         return
 
-    from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication
-
-    from .ui.main_window import MainWindow
-    from .ui.theme import apply_theme
-
-    app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("AI Punk Studio")
-    apply_theme(app)
-    from pathlib import Path
-    window = MainWindow(cfg, segmentation=not args.no_seg, playback=Path(args.play) if args.play else None,
-                        initial_camera=args.camera)
-    window.show()
-    if args.view:
-        window.select_mode(args.view)
-    if args.tab == "metrics":
-        window.tabs.setCurrentWidget(window.charts)
-    if args.start:
-        QTimer.singleShot(0, window.start)
-    if args.screenshot:
-        def capture():
-            window.grab().save(args.screenshot)
-            window.close()
-            QTimer.singleShot(4000, app.quit)
-        QTimer.singleShot(int(args.screenshot_delay * 1000), capture)
-    sys.exit(app.exec())
+    from .apps.gui import run as run_gui
+    sys.exit(run_gui(cfg, segmentation=not args.no_seg, play=args.play, camera=args.camera, view=args.view,
+                     tab=args.tab, start=args.start, screenshot=args.screenshot,
+                     screenshot_delay=args.screenshot_delay))
 
 
 if __name__ == "__main__":

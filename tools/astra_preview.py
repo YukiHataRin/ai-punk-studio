@@ -1,9 +1,9 @@
-"""Orbbec Astra Pro 即時預覽：左邊 RGB、右邊深度。
+"""Orbbec Astra Pro 硬體檢查：左邊 RGB、右邊深度（不跑模型，用來確認相機與驅動正常）。
 
 RGB 走 UVC（OpenCV / AVFoundation），深度走 pyorbbecsdk（OpenNI 協定）。
-macOS 上 RGB 需要相機權限，請在 Claude 的終端機分頁或「終端機」App 執行：
+macOS 上 RGB 需要相機權限，請在已允許相機的終端機執行：
 
-    python preview.py
+    python tools/astra_preview.py
 
 按鍵：q / Esc 離開、s 存一張 RGB + 深度快照、c 切換色彩映射。
 滑鼠移到深度畫面上會顯示該點距離（mm）。

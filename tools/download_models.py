@@ -1,6 +1,6 @@
 """下載執行所需模型與測試用範例圖（macOS / Linux / Windows 通用）。
 
-    python scripts/download_models.py
+    python tools/download_models.py
 
   models/yolo11n-seg.pt             Ultralytics YOLO11 人體分割（AGPL-3.0）
   models/rtmpose-m_halpe26.onnx     RTMPose-m Halpe26 26 點（OpenMMLab MMPose，Apache-2.0）

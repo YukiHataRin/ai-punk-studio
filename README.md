@@ -50,7 +50,7 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
 ./.conda/bin/python -m pip install -e . --no-deps
 
 # 5. 下載模型（YOLO11n-seg、RTMPose-m、MediaPipe Pose）
-./.conda/bin/python scripts/download_models.py
+./.conda/bin/python tools/download_models.py
 ```
 
 Linux 若出現 `libGLESv2.so.2: cannot open shared object file` 之類的錯誤，請補裝系統函式庫：
@@ -70,7 +70,7 @@ $env:PYTHONNOUSERSITE = "1"
 .\.conda\python.exe -m pip uninstall -y opencv-python
 .\.conda\python.exe -m pip install --force-reinstall --no-deps opencv-contrib-python==5.0.0.93
 .\.conda\python.exe -m pip install -e . --no-deps
-.\.conda\python.exe scripts\download_models.py
+.\.conda\python.exe tools\download_models.py
 ```
 
 ### NVIDIA GPU（Linux / Windows，選用）
@@ -192,7 +192,7 @@ git checkout v0.6.0                                # 或切到指定版本（版
 轉成 CSV（輸出關節座標與 `metrics.csv`，可直接用 Excel / pandas 開）：
 
 ```bash
-./.conda/bin/python tools/export_skeleton_csv.py recordings/<時間>
+./.conda/bin/python -m aipunk_studio --export recordings/<時間>
 ```
 
 座標系為 RGB 相機座標系：**x 向右、y 向下、z 朝前**，單位公尺。
@@ -214,8 +214,8 @@ git checkout v0.6.0                                # 或切到指定版本（版
 用戶端範例：
 
 ```bash
-./.conda/bin/python tools/ws_client.py                  # 終端機印出每幀摘要
-./.conda/bin/python tools/ws_client.py --json > s.jsonl # 存原始訊息
+./.conda/bin/python examples/ws_client.py                  # 終端機印出每幀摘要
+./.conda/bin/python examples/ws_client.py --json > s.jsonl # 存原始訊息
 ```
 
 瀏覽器：在 `examples/` 執行 `python3 -m http.server`，再開 `http://127.0.0.1:8000/web_viewer.html`，會即時畫出輪廓、骨架、位置與指標。

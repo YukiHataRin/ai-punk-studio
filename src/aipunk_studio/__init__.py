@@ -1,4 +1,14 @@
-"""AI Punk Studio：同台共舞——以 Orbbec Astra Pro 深度相機做多人即時 3D 舞蹈動作解析。"""
+"""AI Punk Studio：同台共舞——以 Orbbec Astra Pro 深度相機做多人即時 3D 舞蹈動作解析。
+
+分層（上層可以 import 下層，下層不 import 上層）：
+
+    ui · apps                              Qt 介面 · headless 伺服器與其他入口
+    pipeline                               單幀流程與擷取迴圈（介面與 headless 共用）
+    sensors · perception · io · render     影像來源 · 模型推論 · 錄製與串流 · 繪圖資料
+    core                                   純演算法（numpy、scipy、OpenCV）
+
+只有 ui 依賴 Qt（PySide6、pyqtgraph），其餘各層都能在沒有介面的環境中執行與測試。
+"""
 
 __version__ = "0.6.0"
 

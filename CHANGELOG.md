@@ -4,6 +4,12 @@
 每個版本在 GitHub 上都有對應的 tag（例如 `v0.4.0`），可用 `git checkout v0.4.0` 切換。
 
 ## 未發布
+- **專案結構重整**：
+  - 新增 `python -m aipunk_studio --export 錄製目錄` 取代 `tools/export_skeleton_csv.py`（匯出移入套件 `io/export.py`）
+  - `scripts/download_models.py` → `tools/download_models.py`；`tools/ws_client.py` → `examples/ws_client.py`（與 `web_viewer.html` 同為串流用戶端範例）；`tools/preview.py` → `tools/astra_preview.py`
+  - Qt worker 移到 `ui/worker.py`（只有 `ui` 依賴 Qt）；介面啟動流程移到 `apps/gui.py`
+  - 模組更名：`perception/pose.py` → `pose_mediapipe.py`、`pose_rtm.py` → `pose_rtmpose.py`、`render/view3d.py` → `cv_view3d.py`
+  - 移除舊入口 `main.py`、`scripts/download_models.sh` 與過時的 `docs/PLAN.md`
 - WebSocket 串流不再送出骨架模型沒偵測到（3D 也不畫）的關節：`joints` 與 `pixels` 中該位置改為 `null`，陣列長度與關節索引不變；瀏覽器檢視頁同步調整
 
 ## 0.6.0 — AI Punk Studio：舞蹈動作指標

@@ -19,7 +19,7 @@ import numpy as np
 from ..config import PROJECT_ROOT
 from ..pipeline.pipeline import Pipeline
 from ..render.overlay import draw_depth, draw_masks, draw_people
-from ..render.view3d import Orbit3DView
+from ..render.cv_view3d import Orbit3DView
 from ..sensors.astra import AstraSource
 
 WINDOW = "AI Punk Studio (OpenCV)"

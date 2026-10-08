@@ -1,23 +1,19 @@
 """錄製、回放、CSV 匯出測試（合成資料，不需要相機與模型）。"""
 
 import json
-import sys
 import tempfile
 import time
 import unittest
-from pathlib import Path
 
 import cv2
 import numpy as np
 
 from aipunk_studio.config import load_config
 from aipunk_studio.core.types import PoseObservation, SegmentationResult, Skeleton3D, TrackedPerson
+from aipunk_studio.io.export import export, export_metrics
 from aipunk_studio.io.recorder import SessionRecorder, read_skeleton
 from aipunk_studio.pipeline.pipeline import FrameOutput
 from aipunk_studio.sensors.playback import PlaybackSource
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from export_skeleton_csv import export, export_metrics  # noqa: E402
 
 CFG = load_config()
 N = 12

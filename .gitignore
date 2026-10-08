@@ -18,7 +18,7 @@ Claude outputs/
 # Orbbec SDK 自動產生的 log
 Log/
 
-# 模型與測試素材（由 scripts/download_models.sh 下載）
+# 模型與測試素材（由 tools/download_models.py 下載）
 models/*.pt
 models/*.task
 models/*.onnx

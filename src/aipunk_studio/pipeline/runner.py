@@ -1,6 +1,6 @@
 """擷取迴圈（不依賴 Qt）：開來源、載模型、逐幀跑 Pipeline，透過回呼回報結果。
 
-Qt 介面（pipeline/worker.py）與 headless 伺服器（apps/headless.py）共用這個迴圈。
+Qt 介面（ui/worker.py）與 headless 伺服器（apps/headless.py）共用這個迴圈。
 設定變更透過 update() 丟進待套用清單，由擷取執行緒在下一幀開始前套用。
 """
 

@@ -43,10 +43,10 @@ jobs:
           path: |
             models
             tests/data
-          key: models-v1-${{ hashFiles('scripts/download_models.py') }}
+          key: models-v1-${{ hashFiles('tools/download_models.py') }}
 
       - name: 下載模型
-        run: python scripts/download_models.py
+        run: python tools/download_models.py
 
       - name: 測試
         run: python -m unittest discover -s tests -v

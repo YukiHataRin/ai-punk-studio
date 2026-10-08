@@ -1,6 +1,6 @@
 """perception、融合管線測試：用真實模型跑範例影像（tests/data/person.jpg，MediaPipe 官方範例圖）。
 
-範例圖或模型不存在時自動略過（由 scripts/download_models.sh 下載）；不需要相機。
+範例圖或模型不存在時自動略過（由 tools/download_models.py 下載）；不需要相機。
 """
 
 import unittest
@@ -14,7 +14,7 @@ from aipunk_studio.config import load_config
 CFG = load_config()
 IMAGE = Path(__file__).parent / "data" / "person.jpg"
 if not IMAGE.exists():
-    raise unittest.SkipTest("缺 tests/data/person.jpg，請先執行 scripts/download_models.sh")
+    raise unittest.SkipTest("缺 tests/data/person.jpg，請先執行 tools/download_models.py")
 
 
 def frame():
@@ -52,7 +52,7 @@ class SegmentationTest(unittest.TestCase):
 class RTMPoseTest(unittest.TestCase):
     def test_top_down_on_yolo_box(self):
         from aipunk_studio.core.skeleton_format import HALPE26
-        from aipunk_studio.perception.pose_rtm import RTMPoseEstimator
+        from aipunk_studio.perception.pose_rtmpose import RTMPoseEstimator
         from aipunk_studio.perception.segmentation import PersonSegmenter
         img = frame()
         box = PersonSegmenter(CFG["segmentation"])(img, track=False).people[0].box
@@ -75,7 +75,7 @@ class RTMPoseTest(unittest.TestCase):
 @unittest.skipUnless(Path(CFG["pose"]["model"]).exists(), "缺 MediaPipe 模型")
 class PoseTest(unittest.TestCase):
     def test_detects_one_person(self):
-        from aipunk_studio.perception.pose import PoseEstimator
+        from aipunk_studio.perception.pose_mediapipe import PoseEstimator
         est = PoseEstimator(CFG["pose"])
         try:
             poses = est(frame())

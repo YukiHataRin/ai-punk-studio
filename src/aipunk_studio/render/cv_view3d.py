@@ -1,4 +1,4 @@
-"""OpenCV 自繪的 3D 骨架視圖（給 OpenCV 檢視器用；Qt 版第三階段改用 pyqtgraph OpenGL）。"""
+"""OpenCV 自繪的 3D 骨架視圖（給 OpenCV 檢視器 apps/cv_viewer.py 用；Qt 介面用 ui/widgets/view3d_widget.py）。"""
 
 import cv2
 import numpy as np

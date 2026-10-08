@@ -8,8 +8,8 @@ import threading
 
 from PySide6.QtCore import QThread, Signal
 
-from .pipeline import Pipeline
-from .runner import CaptureRunner
+from ..pipeline.pipeline import Pipeline
+from ..pipeline.runner import CaptureRunner
 
 
 class PipelineWorker(QThread):

@@ -1,1 +1,1 @@
-"""Qt 介面（第三階段）。只有這層與 pipeline/worker.py 依賴 Qt。"""
+"""PySide6 介面。只有這一層依賴 Qt。"""

@@ -72,9 +72,9 @@ class Pipeline:
 
     def _make_pose(self, params):
         if self.top_down:
-            from ..perception.pose_rtm import RTMPoseEstimator
+            from ..perception.pose_rtmpose import RTMPoseEstimator
             return RTMPoseEstimator(params)
-        from ..perception.pose import PoseEstimator
+        from ..perception.pose_mediapipe import PoseEstimator
         return PoseEstimator(params)
 
     @property

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 
 from ..config import PROJECT_ROOT, resolve
 from ..io.stream import StreamServer
-from ..pipeline.worker import PipelineWorker
+from .worker import PipelineWorker
 from ..sensors.discovery import apply_camera, discover_cameras, select_camera
 from .camera_discovery import CameraDiscovery
 from ..render.overlay import draw_contours, draw_depth, draw_masks, draw_people

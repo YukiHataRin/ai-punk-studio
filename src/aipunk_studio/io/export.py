@@ -1,6 +1,6 @@
 """把錄製的 skeleton.jsonl 轉成 CSV，方便用 Excel / pandas 分析。
 
-    python tools/export_skeleton_csv.py recordings/20261006_111500
+    python -m aipunk_studio --export recordings/20261006_111500
     → recordings/20261006_111500/skeleton.csv（每列一個關節）
     → recordings/20261006_111500/metrics.csv（每列一位舞者一幀的九項指標）
 
@@ -8,14 +8,12 @@
 （RGB 相機座標系：x 右、y 下、z 前，公尺；measured = 1 表示由深度實測）
 """
 
-import argparse
 import csv
 from pathlib import Path
 
-from aipunk_studio import utf8_stdio
-from aipunk_studio.core.dance_metrics import METRIC_KEYS
-from aipunk_studio.core.skeleton_format import FORMATS, MEDIAPIPE33
-from aipunk_studio.io.recorder import read_skeleton
+from ..core.dance_metrics import METRIC_KEYS
+from ..core.skeleton_format import FORMATS, MEDIAPIPE33
+from .recorder import read_skeleton
 
 
 def export(session_dir, out_path=None):
@@ -53,17 +51,9 @@ def export_metrics(session_dir, out_path=None):
     return out_path, rows
 
 
-def main():
-    utf8_stdio()
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("session", help="錄製目錄（含 skeleton.jsonl）")
-    parser.add_argument("-o", "--output", help="輸出 CSV 路徑（預設放在錄製目錄）")
-    args = parser.parse_args()
-    path, rows = export(args.session, args.output)
-    print(f"已輸出 {rows} 列：{path}")
-    path, rows = export_metrics(args.session)
-    print(f"已輸出 {rows} 列：{path}")
 
-
-if __name__ == "__main__":
-    main()
+def export_session(session_dir):
+    """輸出 skeleton.csv 與 metrics.csv，回傳 [(路徑, 列數), ...]。"""
+    if not (Path(session_dir) / "skeleton.jsonl").is_file():
+        raise FileNotFoundError(f"{session_dir} 裡沒有 skeleton.jsonl")
+    return [export(session_dir), export_metrics(session_dir)]
