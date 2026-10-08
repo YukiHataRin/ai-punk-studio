@@ -43,7 +43,7 @@ def mask_contours(mask, epsilon=2.0, min_area=200, max_points=400):
 def hello_message(cfg, has_depth):
     r = cfg["rgb"]
     return {
-        "type": "hello", "protocol": PROTOCOL_VERSION, "app": "astra-studio",
+        "type": "hello", "protocol": PROTOCOL_VERSION, "app": "aipunk-studio",
         "coordinates": "RGB 相機座標系：x 右、y 下、z 前，單位公尺；pixels / contour 為 RGB 影像像素",
         "image": {"width": r["width"], "height": r["height"]},
         "intrinsics": {k: r[k] for k in ("fx", "fy", "cx", "cy")},

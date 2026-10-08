@@ -5,17 +5,17 @@ from dataclasses import replace
 
 import numpy as np
 
-from astra_studio.config import load_config
-from astra_studio.core.filters import OneEuroFilter
-from astra_studio.core.geometry import Intrinsics, rotation_matrix
-from astra_studio.core.skeleton_format import FORMATS, HALPE26
-from astra_studio.core.lift import estimate_distance, lift_person
-from astra_studio.core.registration import DepthToRgb
-from astra_studio.core.fusion import associate, depth_mask, mask_centroid, match_previous_boxes
-from astra_studio.core.tracker import PoseTracker, SkeletonSmoother
-from astra_studio.core.types import PoseObservation, SegmentedPerson, TrackedPerson
-from astra_studio.render.colors import track_bgr
-from astra_studio.render.overlay import draw_masks
+from aipunk_studio.config import load_config
+from aipunk_studio.core.filters import OneEuroFilter
+from aipunk_studio.core.geometry import Intrinsics, rotation_matrix
+from aipunk_studio.core.skeleton_format import FORMATS, HALPE26
+from aipunk_studio.core.lift import estimate_distance, lift_person
+from aipunk_studio.core.registration import DepthToRgb
+from aipunk_studio.core.fusion import associate, depth_mask, mask_centroid, match_previous_boxes
+from aipunk_studio.core.tracker import PoseTracker, SkeletonSmoother
+from aipunk_studio.core.types import PoseObservation, SegmentedPerson, TrackedPerson
+from aipunk_studio.render.colors import track_bgr
+from aipunk_studio.render.overlay import draw_masks
 
 CFG = load_config()
 RGB_K = Intrinsics.from_config(CFG["rgb"])
@@ -36,7 +36,7 @@ class TelemetryTest(unittest.TestCase):
         """回歸：onnxruntime 遙測的上傳執行緒曾讓程式結束時 abort（exit 134），必須在匯入前關閉。"""
         import subprocess
         import sys
-        code = "import os, astra_studio, onnxruntime; print(os.environ.get('ORT_DISABLE_TELEMETRY'))"
+        code = "import os, aipunk_studio, onnxruntime; print(os.environ.get('ORT_DISABLE_TELEMETRY'))"
         env = {k: v for k, v in __import__("os").environ.items() if k != "ORT_DISABLE_TELEMETRY"}
         out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
         self.assertEqual(out.stdout.strip(), "1")
@@ -132,7 +132,7 @@ class LiftTest(unittest.TestCase):
         self.assertIsNone(estimate_distance(hidden, RGB_K, CFG["skeleton"]))
 
     def test_fov_intrinsics(self):
-        from astra_studio.sensors.webcam import intrinsics_from_fov
+        from aipunk_studio.sensors.webcam import intrinsics_from_fov
         k = intrinsics_from_fov(1280, 720, 90.0)
         self.assertAlmostEqual(k["fx"], 640.0)
         self.assertEqual((k["cx"], k["cy"]), (640.0, 360.0))

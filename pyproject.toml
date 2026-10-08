@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "astra-studio"
+name = "aipunk-studio"
 dynamic = ["version"]
 description = "Orbbec Astra Pro RGB-D 人體分割、多人 3D 骨架與 ID 追蹤"
 readme = "README.md"
@@ -11,13 +11,13 @@ license = "AGPL-3.0-or-later"
 requires-python = ">=3.11,<3.12"   # pyorbbecsdk 1.3.2 在 macOS 只有 cp311 wheel
 
 [project.urls]
-Repository = "https://github.com/YukiHataRin/astra-multi-person-skeleton"
+Repository = "https://github.com/YukiHataRin/ai-punk-studio"
 
 [project.scripts]
-astra-studio = "astra_studio.__main__:main"
+aipunk-studio = "aipunk_studio.__main__:main"
 
 [tool.setuptools.dynamic]
-version = {attr = "astra_studio.__version__"}
+version = {attr = "aipunk_studio.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

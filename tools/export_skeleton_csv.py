@@ -12,10 +12,10 @@ import argparse
 import csv
 from pathlib import Path
 
-from astra_studio import utf8_stdio
-from astra_studio.core.dance_metrics import METRIC_KEYS
-from astra_studio.core.skeleton_format import FORMATS, MEDIAPIPE33
-from astra_studio.io.recorder import read_skeleton
+from aipunk_studio import utf8_stdio
+from aipunk_studio.core.dance_metrics import METRIC_KEYS
+from aipunk_studio.core.skeleton_format import FORMATS, MEDIAPIPE33
+from aipunk_studio.io.recorder import read_skeleton
 
 
 def export(session_dir, out_path=None):

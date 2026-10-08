@@ -9,7 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from astra_studio.config import load_config
+from aipunk_studio.config import load_config
 
 CFG = load_config()
 IMAGE = Path(__file__).parent / "data" / "person.jpg"
@@ -25,7 +25,7 @@ def frame():
 class SegmentationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from astra_studio.perception.segmentation import PersonSegmenter
+        from aipunk_studio.perception.segmentation import PersonSegmenter
         cls.seg = PersonSegmenter(CFG["segmentation"])
 
     def test_finds_person_with_full_resolution_mask(self):
@@ -51,9 +51,9 @@ class SegmentationTest(unittest.TestCase):
 @unittest.skipUnless(Path(CFG["pose"]["rtm_model"]).exists() and Path(CFG["segmentation"]["model"]).exists(), "缺 RTMPose / YOLO 模型")
 class RTMPoseTest(unittest.TestCase):
     def test_top_down_on_yolo_box(self):
-        from astra_studio.core.skeleton_format import HALPE26
-        from astra_studio.perception.pose_rtm import RTMPoseEstimator
-        from astra_studio.perception.segmentation import PersonSegmenter
+        from aipunk_studio.core.skeleton_format import HALPE26
+        from aipunk_studio.perception.pose_rtm import RTMPoseEstimator
+        from aipunk_studio.perception.segmentation import PersonSegmenter
         img = frame()
         box = PersonSegmenter(CFG["segmentation"])(img, track=False).people[0].box
         est = RTMPoseEstimator(CFG["pose"])
@@ -75,7 +75,7 @@ class RTMPoseTest(unittest.TestCase):
 @unittest.skipUnless(Path(CFG["pose"]["model"]).exists(), "缺 MediaPipe 模型")
 class PoseTest(unittest.TestCase):
     def test_detects_one_person(self):
-        from astra_studio.perception.pose import PoseEstimator
+        from aipunk_studio.perception.pose import PoseEstimator
         est = PoseEstimator(CFG["pose"])
         try:
             poses = est(frame())
@@ -96,7 +96,7 @@ class PipelineTest(unittest.TestCase):
 
     def _check_backend(self, backend):
         import copy
-        from astra_studio.pipeline.pipeline import Pipeline
+        from aipunk_studio.pipeline.pipeline import Pipeline
         cfg = copy.deepcopy(CFG)
         cfg["pose"]["backend"] = backend
         pipe = Pipeline(cfg)
@@ -117,7 +117,7 @@ class PipelineTest(unittest.TestCase):
         self.assertAlmostEqual(float(p.centroid[2]), 2.2, delta=0.05)
         for key in ("segmentation", "pose", "fusion", "total"):
             self.assertIn(key, outs[-1].timings)
-        from astra_studio.core.dance_metrics import METRIC_KEYS
+        from aipunk_studio.core.dance_metrics import METRIC_KEYS
         self.assertEqual(set(p.metrics), set(METRIC_KEYS))
         self.assertLess(p.metrics["energy"], 5.0)  # 靜止影像：只剩模型的微小抖動
         self.assertIsNotNone(p.metrics["expansion"])
@@ -127,7 +127,7 @@ class PipelineTest(unittest.TestCase):
         import torch
         if not torch.backends.mps.is_available():
             self.skipTest("無 MPS")
-        from astra_studio.pipeline.pipeline import Pipeline
+        from aipunk_studio.pipeline.pipeline import Pipeline
         pipe = Pipeline(CFG)
         try:
             img, depth = frame(), np.full((480, 640), 2200, np.uint16)

@@ -40,7 +40,7 @@ def open_depth():
 
 
 def open_rgb(index):
-    from astra_studio.sensors.base import CAPTURE_BACKEND
+    from aipunk_studio.sensors.base import CAPTURE_BACKEND
     cap = cv2.VideoCapture(index, CAPTURE_BACKEND)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
@@ -77,7 +77,7 @@ def main():
 
     pipe = open_depth()
     if args.rgb_index is None:
-        from astra_studio.sensors.discovery import find_astra_rgb_index
+        from aipunk_studio.sensors.discovery import find_astra_rgb_index
         args.rgb_index = find_astra_rgb_index(0)
     cap = open_rgb(args.rgb_index)
 

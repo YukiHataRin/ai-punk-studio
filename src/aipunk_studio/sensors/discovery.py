@@ -65,7 +65,7 @@ def apply_camera(cfg, camera):
 
 def discover_cameras():
     result = subprocess.run(
-        [sys.executable, "-m", "astra_studio.sensors.discovery"],
+        [sys.executable, "-m", "aipunk_studio.sensors.discovery"],
         cwd=PROJECT_ROOT, env={**os.environ, "PYTHONNOUSERSITE": "1"},
         capture_output=True, text=True, timeout=10, check=True,
     )

@@ -1,8 +1,8 @@
 """Headless 伺服器：不開視窗，只擷取、計算並以 WebSocket 推送（可同時錄製）。Ctrl-C 結束。
 
-    python -m astra_studio --headless                       # 自動選 Astra Pro，ws://127.0.0.1:8765
-    python -m astra_studio --headless --camera "j5 WebCam JVCU100" --ws-host 0.0.0.0
-    python -m astra_studio --headless --play recordings/20261006_112336 --duration 10
+    python -m aipunk_studio --headless                       # 自動選 Astra Pro，ws://127.0.0.1:8765
+    python -m aipunk_studio --headless --camera "j5 WebCam JVCU100" --ws-host 0.0.0.0
+    python -m aipunk_studio --headless --play recordings/20261006_112336 --duration 10
 """
 
 import signal

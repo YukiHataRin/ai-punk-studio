@@ -1,7 +1,7 @@
 """產生演算法架構圖 docs/figures/architecture.svg（Nature 期刊風格，全向量、文字可編輯）。
 
 骨架形狀取自 MediaPipe 對範例影像的實際輸出（docs/figures/pose_sample.json）；
-One Euro 曲線由 astra_studio.core.filters.OneEuroFilter 實際計算；
+One Euro 曲線由 aipunk_studio.core.filters.OneEuroFilter 實際計算；
 時序圖數值為本機實測（TIMINGS：Apple M5、1280×720，pipeline.process 的 timings 中位數）。
 
     python tools/make_architecture_figure.py
@@ -12,8 +12,8 @@ from pathlib import Path
 
 import numpy as np
 
-from astra_studio.core.filters import OneEuroFilter
-from astra_studio.render.colors import TRACK_COLORS
+from aipunk_studio.core.filters import OneEuroFilter
+from aipunk_studio.render.colors import TRACK_COLORS
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "figures" / "architecture.svg"

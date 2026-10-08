@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
                         "record_images": True}
         self.pipeline_settings = {}
 
-        self.setWindowTitle("Astra Studio")
+        self.setWindowTitle("AI Punk Studio")
         self.resize(1440, 900)
         self.setMinimumSize(1100, 700)
         root = QWidget()
@@ -65,9 +65,9 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout()
         titles = QVBoxLayout()
         titles.setSpacing(2)
-        brand = QLabel("●  Astra Studio")
+        brand = QLabel("●  AI Punk Studio")
         brand.setObjectName("brand")
-        eyebrow = QLabel("RGB-D 人體分割  ·  多人 3D 骨架  ·  ID 追蹤")
+        eyebrow = QLabel("同台共舞：多人即時 3D 舞蹈動作解析")
         eyebrow.setObjectName("eyebrow")
         titles.addWidget(brand)
         titles.addWidget(eyebrow)

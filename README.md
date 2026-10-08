@@ -1,8 +1,10 @@
-# Astra Multi-Person Skeleton
+# AI Punk Studio
 
-用 **Orbbec Astra Pro** RGB-D 相機做**多人 3D 骨架追蹤**：
-YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度相機把每個關節換算成公制 3D 座標，
-附原生桌面介面（Astra Studio）、錄製與回放。
+**同台共舞：多人即時 3D 舞蹈動作解析系統**（AI Punk／AI 叛客 計畫）
+
+用 **Orbbec Astra Pro** 深度相機即時追蹤同台的多位舞者：YOLO11 分割與 BoT-SORT 賦予每人穩定編號，
+RTMPose 估計關節，再結合深度換算成真實尺度的 3D 骨架，即時計算動作強度、左右協調、身體擴展、重心穩定、
+流暢度等九項指標。附桌面介面、headless 伺服器、WebSocket 串流、錄製與回放。
 
 ![演算法架構](docs/figures/architecture_preview.png)
 
@@ -38,8 +40,8 @@ YOLO11 人體分割 + BoT-SORT 追蹤 ID + RTMPose 逐人骨架，再以深度�
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/YukiHataRin/astra-multi-person-skeleton.git
-cd astra-multi-person-skeleton
+git clone https://github.com/YukiHataRin/ai-punk-studio.git
+cd ai-punk-studio
 
 # 1. 在專案內建立 Python 3.11 環境
 conda create -p ./.conda python=3.11 -y
@@ -67,8 +69,8 @@ sudo apt install libegl1 libgl1 libgles2 libxkbcommon0 libfontconfig1 libdbus-1-
 ### Windows（PowerShell）
 
 ```powershell
-git clone https://github.com/YukiHataRin/astra-multi-person-skeleton.git
-cd astra-multi-person-skeleton
+git clone https://github.com/YukiHataRin/ai-punk-studio.git
+cd ai-punk-studio
 conda create -p .\.conda python=3.11 -y
 $env:PYTHONNOUSERSITE = "1"
 .\.conda\python.exe -m pip install -r requirements.txt
@@ -96,7 +98,7 @@ $env:PYTHONNOUSERSITE = "1"
 接上 Astra Pro 後：
 
 ```bash
-./.conda/bin/python -m astra_studio
+./.conda/bin/python -m aipunk_studio
 ```
 
 或用啟動檔：macOS 在 Finder 雙擊 `launch.command`、Linux `./launch.sh`、Windows 雙擊 `launch.bat`
@@ -113,12 +115,12 @@ $env:PYTHONNOUSERSITE = "1"
 常用參數：
 
 ```bash
-./.conda/bin/python -m astra_studio --start --view split   # 開啟即開始，並排顯示 3D
-./.conda/bin/python -m astra_studio --no-seg               # 只跑骨架（不做分割）
-./.conda/bin/python -m astra_studio --play recordings/20261006_112336   # 回放錄製，不需要相機
-./.conda/bin/python -m astra_studio --list-cameras         # 列出相機
-./.conda/bin/python -m astra_studio --camera "j5 WebCam JVCU100"   # 預選攝影機（名稱、裝置 ID 或編號）
-./.conda/bin/python -m astra_studio --cv                   # OpenCV 簡易檢視器（開發用）
+./.conda/bin/python -m aipunk_studio --start --view split   # 開啟即開始，並排顯示 3D
+./.conda/bin/python -m aipunk_studio --no-seg               # 只跑骨架（不做分割）
+./.conda/bin/python -m aipunk_studio --play recordings/20261006_112336   # 回放錄製，不需要相機
+./.conda/bin/python -m aipunk_studio --list-cameras         # 列出相機
+./.conda/bin/python -m aipunk_studio --camera "j5 WebCam JVCU100"   # 預選攝影機（名稱、裝置 ID 或編號）
+./.conda/bin/python -m aipunk_studio --cv                   # OpenCV 簡易檢視器（開發用）
 ```
 
 ## 介面
@@ -168,11 +170,11 @@ $env:PYTHONNOUSERSITE = "1"
 ### Headless（不開視窗的純伺服器）
 
 ```bash
-./.conda/bin/python -m astra_studio --headless                          # 自動選 Astra Pro，ws://127.0.0.1:8765
-./.conda/bin/python -m astra_studio --headless --camera "j5 WebCam JVCU100"
-./.conda/bin/python -m astra_studio --headless --ws-host 0.0.0.0        # 開放區域網路其他裝置連線
-./.conda/bin/python -m astra_studio --headless --record                 # 同時錄製
-./.conda/bin/python -m astra_studio --headless --play recordings/<時間>   # 用錄影當來源，不需要相機
+./.conda/bin/python -m aipunk_studio --headless                          # 自動選 Astra Pro，ws://127.0.0.1:8765
+./.conda/bin/python -m aipunk_studio --headless --camera "j5 WebCam JVCU100"
+./.conda/bin/python -m aipunk_studio --headless --ws-host 0.0.0.0        # 開放區域網路其他裝置連線
+./.conda/bin/python -m aipunk_studio --headless --record                 # 同時錄製
+./.conda/bin/python -m aipunk_studio --headless --play recordings/<時間>   # 用錄影當來源，不需要相機
 ```
 
 終端機每 5 秒印出 fps、人數、用戶端數；`Ctrl-C` 結束（`--duration 秒數` 可自動結束）。
@@ -290,7 +292,7 @@ JSON 文字訊息。連線後伺服器先送 `hello`，之後每幀送 `frame`�
 
 ```
 ├── config/            default.toml（所有參數）、botsort_reid.yaml
-├── src/astra_studio/
+├── src/aipunk_studio/
 │   ├── core/          純演算法（不依賴 Qt / torch / mediapipe）：對齊、融合、3D 提升、平滑、舞蹈指標
 │   ├── sensors/       Astra Pro 擷取、一般攝影機、錄製回放、相機列舉
 │   ├── perception/    YOLO11 分割 + BoT-SORT、RTMPose 逐人骨架、MediaPipe Pose、推論裝置選擇
@@ -340,8 +342,8 @@ PYTHONNOUSERSITE=1 ./.conda/bin/python -m unittest discover -s tests -v
   git pull
   ```
 
-- 也可以在 GitHub 的 [Releases](https://github.com/YukiHataRin/astra-multi-person-skeleton/releases) 下載各版本的原始碼壓縮檔
-- `python -m astra_studio --version` 顯示目前版本
+- 也可以在 GitHub 的 [Releases](https://github.com/YukiHataRin/ai-punk-studio/releases) 下載各版本的原始碼壓縮檔
+- `python -m aipunk_studio --version` 顯示目前版本
 - 開發新功能用獨立分支，GitHub Actions 在三個平台測試通過後再合併回 `main`
 - 所有平台用同一份程式碼，平台差異（攝影機後端、推論後端、字型）在程式中自動判斷，**不需要**為不同系統切換分支
 

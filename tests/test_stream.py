@@ -12,12 +12,12 @@ from pathlib import Path
 import numpy as np
 from websockets.sync.client import connect
 
-from astra_studio.config import PROJECT_ROOT, load_config
-from astra_studio.core.skeleton_format import HALPE26
-from astra_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
-from astra_studio.io.stream import StreamServer, frame_message, mask_contours
-from astra_studio.pipeline.pipeline import FrameOutput
-from astra_studio.pipeline.runner import CaptureRunner
+from aipunk_studio.config import PROJECT_ROOT, load_config
+from aipunk_studio.core.skeleton_format import HALPE26
+from aipunk_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
+from aipunk_studio.io.stream import StreamServer, frame_message, mask_contours
+from aipunk_studio.pipeline.pipeline import FrameOutput
+from aipunk_studio.pipeline.runner import CaptureRunner
 
 CFG = load_config()
 
@@ -167,14 +167,14 @@ class RunnerStreamTest(unittest.TestCase):
 @unittest.skipUnless(Path(CFG["segmentation"]["model"]).exists() and Path(CFG["pose"]["rtm_model"]).exists(), "缺模型")
 class HeadlessCliTest(unittest.TestCase):
     def test_headless_playback_runs_and_exits(self):
-        from astra_studio.io.recorder import SessionRecorder
+        from aipunk_studio.io.recorder import SessionRecorder
         with tempfile.TemporaryDirectory() as tmp:
             rec = SessionRecorder(CFG, root=tmp, with_images=True)
             for i in range(30):
                 rec.write(np.full((720, 1280, 3), 120, np.uint8), np.full((480, 640), 2000, np.uint16), fake_output(), i / 30)
             path = rec.close()
             result = subprocess.run(
-                [sys.executable, "-m", "astra_studio", "--headless", "--play", str(path), "--ws-port", "0"],
+                [sys.executable, "-m", "aipunk_studio", "--headless", "--play", str(path), "--ws-port", "0"],
                 cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=120)  # 程式輸出固定為 UTF-8
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("WebSocket 串流：ws://127.0.0.1:", result.stdout)

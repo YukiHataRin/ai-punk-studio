@@ -9,14 +9,14 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
-from astra_studio.config import load_config
-from astra_studio.core.dance_metrics import METRIC_KEYS, METRICS
-from astra_studio.core.skeleton_format import MEDIAPIPE33
-from astra_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
-from astra_studio.pipeline.pipeline import FrameOutput
-from astra_studio.render.scene3d import build_scene, to_gl
-from astra_studio.ui.main_window import MainWindow
-from astra_studio.ui.theme import apply_theme
+from aipunk_studio.config import load_config
+from aipunk_studio.core.dance_metrics import METRIC_KEYS, METRICS
+from aipunk_studio.core.skeleton_format import MEDIAPIPE33
+from aipunk_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
+from aipunk_studio.pipeline.pipeline import FrameOutput
+from aipunk_studio.render.scene3d import build_scene, to_gl
+from aipunk_studio.ui.main_window import MainWindow
+from aipunk_studio.ui.theme import apply_theme
 
 APP = QApplication.instance() or QApplication([])
 apply_theme(APP)
@@ -119,8 +119,8 @@ class MainWindowTest(unittest.TestCase):
         self.assertEqual(table.item(1, energy_col).text(), "1.000")
         self.assertEqual(table.item(0, height_col).text(), "—")
         self.assertEqual(table.item(2, energy_col).text(), "—")
-        from astra_studio.render.colors import track_hex
-        from astra_studio.ui.theme import FAINT, TEXT
+        from aipunk_studio.render.colors import track_hex
+        from aipunk_studio.ui.theme import FAINT, TEXT
         self.assertEqual(table.item(1, 0).foreground().color().name(), track_hex(2).lower())  # ID 用代表色
         self.assertEqual(table.item(0, 2).text(), "8/13")  # 只算指標用的 13 個關節
         self.assertEqual(table.item(0, energy_col).foreground().color().name(), TEXT.lower())
@@ -201,7 +201,7 @@ class MainWindowTest(unittest.TestCase):
         w.close()
 
     def test_camera_selection(self):
-        from astra_studio.sensors.discovery import Camera
+        from aipunk_studio.sensors.discovery import Camera
         astra = Camera("Astra Pro HD Camera", 0, 1200, "uid-astra")
         mac = Camera("MacBook Pro相機", 1, 1200, "uid-mac")
         w = self.make()
@@ -221,7 +221,7 @@ class MainWindowTest(unittest.TestCase):
     def test_start_waits_for_camera_discovery(self):
         """回歸：--start 在攝影機列舉完成前觸發時，曾直接用預設的 Astra 開啟，而不是使用者選的攝影機。"""
         import time
-        from astra_studio.sensors.discovery import Camera
+        from aipunk_studio.sensors.discovery import Camera
         cams = [Camera("Astra Pro HD Camera", 0, 1200, "a"), Camera("USB Webcam", 2, 1200, "b")]
 
         def slow_discover():
@@ -259,7 +259,7 @@ class MainWindowTest(unittest.TestCase):
         w.close()
 
     def test_initial_camera_and_depth_chip(self):
-        from astra_studio.sensors.discovery import Camera
+        from aipunk_studio.sensors.discovery import Camera
         cams = [Camera("Astra Pro HD Camera", 0, 1200, "a"), Camera("USB Webcam", 2, 1200, "b")]
         w = MainWindow(CFG, worker_factory=FakeWorker, enable_3d=False, camera_discover=None, initial_camera="2")
         w.on_cameras(cams)

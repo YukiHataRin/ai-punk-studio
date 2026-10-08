@@ -4,9 +4,9 @@ import unittest
 
 import numpy as np
 
-from astra_studio.core import dance_metrics as dm
-from astra_studio.core.skeleton_format import HALPE26, MEDIAPIPE33
-from astra_studio.core.types import Skeleton3D, TrackedPerson
+from aipunk_studio.core import dance_metrics as dm
+from aipunk_studio.core.skeleton_format import HALPE26, MEDIAPIPE33
+from aipunk_studio.core.types import Skeleton3D, TrackedPerson
 
 FPS = 30.0
 

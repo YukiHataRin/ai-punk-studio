@@ -22,7 +22,7 @@ from ..render.overlay import draw_depth, draw_masks, draw_people
 from ..render.view3d import Orbit3DView
 from ..sensors.astra import AstraSource
 
-WINDOW = "Astra Studio (OpenCV)"
+WINDOW = "AI Punk Studio (OpenCV)"
 
 
 def run(cfg, segmentation=True):

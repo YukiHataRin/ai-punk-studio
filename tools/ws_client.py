@@ -10,7 +10,7 @@ import json
 
 from websockets.sync.client import connect
 
-from astra_studio import utf8_stdio
+from aipunk_studio import utf8_stdio
 
 
 def summary(msg):

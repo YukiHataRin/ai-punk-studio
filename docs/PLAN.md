@@ -1,4 +1,4 @@
-# Astra Studio 整合規劃
+# AI Punk Studio 整合規劃
 
 把兩個專案合成一個桌面 App：
 
@@ -34,13 +34,13 @@ YOLO 與 MediaPipe 互不相依，可以兩條執行緒平行跑：YOLO 用 MPS�
 
 ```
 orbbec-astra-pro/                 # 整合後的主專案（human_semantic_segmentation 保持不動）
-├── pyproject.toml                # 套件設定 + 入口指令 astra-studio
+├── pyproject.toml                # 套件設定 + 入口指令 aipunk-studio
 ├── requirements.txt
 ├── launch.command                # 雙擊啟動（相機權限歸終端機）
 ├── config/
 │   └── default.toml              # 相機內外參、模型、門檻、平滑、UI 預設
 ├── models/                       # yolo11n-seg.pt、pose_landmarker_*.task（不進版控）
-├── src/astra_studio/
+├── src/aipunk_studio/
 │   ├── __main__.py               # CLI 參數、建立 Qt App、套主題
 │   ├── config.py
 │   ├── core/                     # 純演算法，不依賴 Qt，可單元測試
@@ -117,7 +117,7 @@ orbbec-astra-pro/                 # 整合後的主專案（human_semantic_segme
 
 ## 6. 實作階段
 
-1. **重構與合併環境**：建立 `src/astra_studio` 骨架，把 skeleton3d 搬進對應模組，移植 YOLO 引擎；現有功能（OpenCV 視窗版）照常能跑
+1. **重構與合併環境**：建立 `src/aipunk_studio` 骨架，把 skeleton3d 搬進對應模組，移植 YOLO 引擎；現有功能（OpenCV 視窗版）照常能跑
 2. **融合**：YOLO 遮罩取深度、BoT-SORT ID 取代自寫追蹤、pose ↔ track 配對；單元測試
 3. **Qt UI**：主視窗、四種檢視、人物列、設定面板、即時設定更新
 4. **錄製 / 匯出 / 校正**：錄 RGB-D、匯出 3D 骨架、棋盤格校正工具

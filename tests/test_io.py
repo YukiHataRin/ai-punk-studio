@@ -10,11 +10,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from astra_studio.config import load_config
-from astra_studio.core.types import PoseObservation, SegmentationResult, Skeleton3D, TrackedPerson
-from astra_studio.io.recorder import SessionRecorder, read_skeleton
-from astra_studio.pipeline.pipeline import FrameOutput
-from astra_studio.sensors.playback import PlaybackSource
+from aipunk_studio.config import load_config
+from aipunk_studio.core.types import PoseObservation, SegmentationResult, Skeleton3D, TrackedPerson
+from aipunk_studio.io.recorder import SessionRecorder, read_skeleton
+from aipunk_studio.pipeline.pipeline import FrameOutput
+from aipunk_studio.sensors.playback import PlaybackSource
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from export_skeleton_csv import export, export_metrics  # noqa: E402
@@ -117,7 +117,7 @@ class CameraTimeoutTest(unittest.TestCase):
     def test_camera_without_frames_reports_error(self):
         """攝影機能開啟卻不送影像（例如 MacBook 蓋上螢幕時的內建相機）時，要報錯而不是讓介面一直空等。"""
         from unittest import mock
-        from astra_studio.sensors import astra
+        from aipunk_studio.sensors import astra
 
         class DeadCapture:
             def __init__(self, *args): pass

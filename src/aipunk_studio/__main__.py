@@ -1,4 +1,4 @@
-"""python -m astra_studio [--headless] [--camera NAME] [--ws] [--start] [--play DIR] [--list-cameras]"""
+"""python -m aipunk_studio [--headless] [--camera NAME] [--ws] [--start] [--play DIR] [--list-cameras]"""
 
 import argparse
 import sys
@@ -9,8 +9,8 @@ from .config import load_config
 
 def main():
     utf8_stdio()
-    parser = argparse.ArgumentParser(description="Astra Studio：RGB-D 人體分割、多人 3D 骨架與 ID 追蹤")
-    parser.add_argument("--version", action="version", version=f"astra-studio {__version__}")
+    parser = argparse.ArgumentParser(description="AI Punk Studio：RGB-D 人體分割、多人 3D 骨架與 ID 追蹤")
+    parser.add_argument("--version", action="version", version=f"aipunk-studio {__version__}")
     parser.add_argument("--config", help="設定檔路徑（預設 config/default.toml）")
     parser.add_argument("--start", action="store_true", help="開啟後立即開始擷取")
     parser.add_argument("--no-seg", action="store_true", help="關閉 YOLO 人體分割，只跑骨架")
@@ -59,7 +59,7 @@ def main():
     from .ui.theme import apply_theme
 
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("Astra Studio")
+    app.setApplicationName("AI Punk Studio")
     apply_theme(app)
     from pathlib import Path
     window = MainWindow(cfg, segmentation=not args.no_seg, playback=Path(args.play) if args.play else None,
