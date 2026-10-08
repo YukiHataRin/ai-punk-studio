@@ -16,7 +16,7 @@ RTMPose 估計關節，再結合深度換算成真實尺度的 3D 骨架，即�
 - **九項舞蹈動作指標**：每位舞者各自計算動作強度、左右平衡與協調、身體擴展、軌跡曲率、重心高度與晃動、出力程度、急動度
 - **即時介面**：總覽頁（五種畫面模式、可旋轉 3D 視圖、指標表格）與指標頁（每人照片＋九項指標即時曲線）
 - **任何攝影機都能用**：選 Astra Pro 為深度實測，選一般 webcam 時 3D 改由身體尺寸估計
-- **WebSocket 串流與 headless 伺服器**：每幀推送 ID、距離、3D／2D 關節、指標與輪廓；可不開視窗只當伺服器
+- **WebSocket 串流與 headless 伺服器**：每幀推送 ID、距離、3D／2D 關節、指標與輪廓；可不開視窗只當伺服器（[API 文件](docs/API.md)）
 - **錄製與回放**：RGB 影片 + 16-bit 深度 + 每幀 3D 骨架，可不接相機回放，骨架與指標可轉 CSV
 - **跨平台**：macOS、Linux、Windows 共用同一份程式
 
@@ -221,26 +221,7 @@ git checkout v0.6.0                                # 或切到指定版本（版
 
 瀏覽器：在 `examples/` 執行 `python3 -m http.server`，再開 `http://127.0.0.1:8000/web_viewer.html`，會即時畫出輪廓、骨架、位置與指標。
 
-訊息格式為 JSON。連線後伺服器先送 `hello`（影像尺寸、內參、骨架格式、指標定義），之後每幀送 `frame`：
-
-```jsonc
-{"type": "frame", "frame": 128, "t": 4.27, "fps": 30.1, "has_depth": true,
- "people": [{
-   "id": 3,                          // 追蹤 ID
-   "distance": 2.14, "distance_measured": true,   // false 時為估計值
-   "centroid": [0.12, -0.05, 2.20],  // 3D 位置（公尺），沒有深度時為 null
-   "format": "halpe26",
-   "joints": [[x, y, z], null, ...], // 3D 關節（公尺）；頭部與沒偵測到的關節（畫面上不畫的）為 null
-   "measured": [1, 1, 0, ...],       // 每個關節是否深度實測
-   "pixels": [[u, v], null, ...], "visibility": [0.98, 0.21, ...],   // 2D 關節（同上為 null）與信心值
-   "box": [x1, y1, x2, y2],
-   "contour": [[[u, v], ...]],       // 遮罩外輪廓（像素）
-   "metrics": {"energy": 1.93, "sync_velocity": 0.58, ..., "height": null},  // 資料不足時為 null
-   "metric_joints_measured": 11
- }]}
-```
-
-用戶端可送 `{"type": "ping"}`（回 `pong`）或 `{"type": "hello"}`（重送 hello）。
+訊息格式、每個欄位的意義、座標系、`null` 的規則與 Python / JavaScript 範例，請參閱 **[WebSocket API 文件](docs/API.md)**。
 
 > **安全性**：預設只綁 `127.0.0.1`。改成 `0.0.0.0` 後同一網路的任何裝置都能連線讀取資料，連線**沒有加密也沒有驗證**，請只在可信任的網路使用。
 
