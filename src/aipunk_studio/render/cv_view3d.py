@@ -82,13 +82,13 @@ class Orbit3DView:
                         cv2.circle(img, tuple(uv[0]), 6, color, 2, cv2.LINE_AA)
                 continue
             detected = (person.pose.visibility >= MIN_VISIBILITY) if person.pose is not None else np.ones(len(sk.points), bool)
-            for a, b in sk.fmt.connections:
-                if not (detected[a] and detected[b]):  # 沒偵測到的關節不畫
+            for a, b in sk.fmt.shown_connections:  # 頭部與沒偵測到的關節不畫
+                if not (detected[a] and detected[b]):
                     continue
                 both = sk.measured[a] and sk.measured[b]
                 self._line(img, sk.points[a], sk.points[b], color if both else dim, 2)
             uv, ok = self._project(sk.points)
-            for j in range(len(uv)):
+            for j in sk.fmt.shown:
                 if ok[j] and detected[j]:
                     cv2.circle(img, tuple(uv[j]), 3, color if sk.measured[j] else dim, -1, cv2.LINE_AA)
 

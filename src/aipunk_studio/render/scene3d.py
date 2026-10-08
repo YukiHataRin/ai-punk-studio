@@ -47,13 +47,13 @@ def build_scene(people, point_cloud=False):
             fmt = sk.fmt
             if detected is None:
                 detected = np.ones(len(pts), bool)
-            for a, b in fmt.connections:
-                if a in fmt.face or b in fmt.face or not (detected[a] and detected[b]):  # 臉部太擠、沒偵測到的不畫
+            for a, b in fmt.shown_connections:  # 頭部與沒偵測到的關節不畫
+                if not (detected[a] and detected[b]):
                     continue
                 lines += [pts[a], pts[b]]
                 c = bright if sk.measured[a] and sk.measured[b] else dim
                 lcol += [c, c]
-            body = np.array([j for j in fmt.body if detected[j]])
+            body = np.array([j for j in fmt.shown if detected[j]])
             if len(body):
                 joints.append(pts[body])
                 jcol.append(np.where(sk.measured[body, None], bright, dim))

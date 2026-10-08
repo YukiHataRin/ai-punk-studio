@@ -15,7 +15,7 @@ from websockets.sync.client import connect
 from aipunk_studio.config import PROJECT_ROOT, load_config
 from aipunk_studio.core.skeleton_format import HALPE26
 from aipunk_studio.core.types import PoseObservation, SegmentationResult, SegmentedPerson, Skeleton3D, TrackedPerson
-from aipunk_studio.io.stream import StreamServer, frame_message, mask_contours
+from aipunk_studio.io.stream import StreamServer, frame_message, hello_message, mask_contours
 from aipunk_studio.pipeline.pipeline import FrameOutput
 from aipunk_studio.pipeline.runner import CaptureRunner
 
@@ -60,11 +60,21 @@ class MessageTest(unittest.TestCase):
 
     def test_undetected_joints_are_null(self):
         out = fake_output()
-        out.people[0].pose.visibility[[3, 4]] = 0.2  # 兩耳沒偵測到
+        out.people[0].pose.visibility[[13, 14]] = 0.2  # 兩膝沒偵測到
         p = frame_message(out, {}, 0, 0, {"contours": False})["people"][0]
         self.assertEqual((len(p["joints"]), len(p["pixels"])), (26, 26))
-        self.assertEqual((p["joints"][3], p["pixels"][4]), (None, None))
-        self.assertEqual(p["joints"][0], [0.0, 0.0, 2.0])
+        self.assertEqual((p["joints"][13], p["pixels"][14]), (None, None))
+        self.assertEqual(p["joints"][5], [0.0, 0.0, 2.0])  # 左肩：偵測到且會顯示
+
+    def test_head_joints_are_not_sent(self):
+        """與原專案相同不顯示頭部：頭部關節送 null，hello 的連線也不含頭部。"""
+        p = frame_message(fake_output(), {}, 0, 0, {"contours": False})["people"][0]
+        for j in HALPE26.hidden:
+            self.assertEqual((p["joints"][j], p["pixels"][j]), (None, None))
+        self.assertEqual(sum(q is not None for q in p["joints"]), 26 - len(HALPE26.hidden))
+        fmt = hello_message(CFG, True)["formats"]["halpe26"]
+        self.assertEqual(fmt["hidden"], sorted(HALPE26.hidden))
+        self.assertFalse(any(a in HALPE26.hidden or b in HALPE26.hidden for a, b in fmt["connections"]))
 
     def test_tiny_blobs_are_dropped(self):
         mask = np.zeros((100, 100), bool)

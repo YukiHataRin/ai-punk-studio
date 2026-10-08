@@ -94,7 +94,8 @@ class SceneTest(unittest.TestCase):
         scene = build_scene(fake_output().people, point_cloud=True)
         self.assertEqual(len(scene.lines) % 2, 0)
         self.assertEqual(len(scene.lines), len(scene.line_colors))
-        self.assertEqual(len(scene.joints), 2 * len(MEDIAPIPE33.body) + 1)  # 兩副骨架的身體關節 + 一個只有遮罩的人
+        self.assertEqual(len(scene.joints), 2 * len(MEDIAPIPE33.shown) + 1)  # 兩副骨架肩膀以下的關節 + 一個只有遮罩的人
+        self.assertEqual(len(MEDIAPIPE33.shown), 33 - 11)  # 頭部（鼻、眼、耳、嘴）不畫
         self.assertEqual(len(scene.cloud), 66)
         self.assertEqual([tid for tid, _, _ in scene.labels], [1, 2, 9])
 

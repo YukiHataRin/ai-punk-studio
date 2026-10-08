@@ -4,7 +4,8 @@
     連線時伺服器先送 {"type": "hello", ...}：座標系、影像大小、內參、是否有深度、骨架格式（關節名稱與連線）
     之後每幀送 {"type": "frame", "frame": n, "t": 秒, "fps": ..., "has_depth": ..., "people": [...]}
         people 每人欄位與錄製檔 skeleton.jsonl 相同（io/recorder.person_record，含九項指標 "metrics"），另加 "contour"；
-        骨架模型判斷沒偵測到、3D 也不畫的關節，"joints" 與 "pixels" 中該位置為 null（陣列長度不變，索引仍對應關節名稱）
+        畫面上不畫的關節（頭部，見 hello 的 formats.*.hidden；以及骨架模型判斷沒偵測到的），
+        "joints" 與 "pixels" 中該位置為 null（陣列長度不變，索引仍對應關節名稱）
     用戶端可送 {"type": "ping"}，伺服器回 {"type": "pong"}；送 {"type": "hello"} 會重送 hello
 
 每個用戶端只保留一則「待送的最新幀」：上一則還卡在傳送（網路或用戶端讀取跟不上、送出被流量控制擋住）時，
@@ -51,7 +52,8 @@ def hello_message(cfg, has_depth):
         "intrinsics": {k: r[k] for k in ("fx", "fy", "cx", "cy")},
         "has_depth": has_depth,
         "source": cfg.get("source"),
-        "formats": {name: {"names": list(f.names), "connections": [list(c) for c in f.connections]}
+        "formats": {name: {"names": list(f.names), "connections": [list(c) for c in f.shown_connections],
+                           "hidden": sorted(f.hidden)}
                     for name, f in FORMATS.items()},
         "metrics": [{"key": m.key, "name": m.name, "name_en": m.name_en, "unit": m.unit, "description": m.description}
                     for m in METRICS],
@@ -62,8 +64,9 @@ def frame_message(out, metrics, index, t, params):
     people = []
     for p in out.people:
         rec = person_record(p)
-        if p.pose is not None:  # 沒偵測到的關節不送座標，與 3D 視圖一致
-            for j in np.flatnonzero(p.pose.visibility < MIN_VISIBILITY):
+        if p.pose is not None:  # 畫面上不畫的關節（頭部、沒偵測到的）不送座標
+            fmt = p.pose.fmt
+            for j in sorted(set(np.flatnonzero(p.pose.visibility < MIN_VISIBILITY)) | fmt.hidden):
                 for key in ("joints", "pixels"):
                     if key in rec:
                         rec[key][j] = None

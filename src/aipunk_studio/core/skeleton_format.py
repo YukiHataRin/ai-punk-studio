@@ -16,7 +16,8 @@ class SkeletonFormat:
     hips: tuple[int, int]        # 左、右髖
     ankles: tuple[int, int]      # 左、右踝
     head: int                    # 標籤錨點（頭部）
-    face: frozenset[int]         # 臉部點：畫小一點、3D 視圖省略
+    face: frozenset[int]         # 臉部點：配對與深度定位時不使用
+    hidden: frozenset[int] = frozenset()  # 不顯示、不串流的關節（頭部；與 Real-time Dance Aesthetics Analysis 相同）
 
     @property
     def size(self):
@@ -26,6 +27,16 @@ class SkeletonFormat:
     def torso(self):
         """軀幹四點，順序可直接畫成多邊形：左肩、右肩、右髖、左髖。"""
         return (self.shoulders[0], self.shoulders[1], self.hips[1], self.hips[0])
+
+    @property
+    def shown(self):
+        """畫面上顯示、串流送出的關節索引（排除頭部）。"""
+        return tuple(i for i in range(self.size) if i not in self.hidden)
+
+    @property
+    def shown_connections(self):
+        """兩端都會顯示的骨架連線。"""
+        return tuple((a, b) for a, b in self.connections if a not in self.hidden and b not in self.hidden)
 
     @property
     def body(self):
@@ -47,6 +58,7 @@ MEDIAPIPE33 = SkeletonFormat(
                  (26, 28), (27, 29), (27, 31), (28, 30), (28, 32), (29, 31), (30, 32)),
     shoulders=(11, 12), hips=(23, 24), ankles=(27, 28), head=0,
     face=frozenset(range(1, 11)),  # 鼻子（0）保留，用來配對與當標籤錨點
+    hidden=frozenset(range(0, 11)),  # 鼻、眼、耳、嘴：只畫肩膀以下
 )
 
 HALPE26 = SkeletonFormat(
@@ -62,6 +74,7 @@ HALPE26 = SkeletonFormat(
                  (15, 24), (15, 20), (20, 22), (16, 25), (16, 21), (21, 23)),  # 腳
     shoulders=(5, 6), hips=(11, 12), ankles=(15, 16), head=17,
     face=frozenset({1, 2, 3, 4}),
+    hidden=frozenset({0, 1, 2, 3, 4, 17, 18, 19}),  # 鼻、眼、耳、頭頂、頸；骨盆中點只連到頸部，一併不畫
 )
 
 FORMATS = {f.name: f for f in (MEDIAPIPE33, HALPE26)}

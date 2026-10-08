@@ -43,17 +43,17 @@ def draw_label(img, text, x, y, color):
 
 
 def draw_skeleton(img, pose, skeleton, color):
-    """實心點 = 深度實測，空心點 = 推估。"""
+    """實心點 = 深度實測，空心點 = 推估。頭部不畫（fmt.hidden）。"""
     px = pose.pixels.astype(int)
     vis = pose.visibility
     fmt = pose.fmt
-    for a, b in fmt.connections:
+    for a, b in fmt.shown_connections:
         if min(vis[a], vis[b]) > MIN_VIS:
             cv2.line(img, tuple(px[a]), tuple(px[b]), color, 2, cv2.LINE_AA)
-    for j, p in enumerate(px):
+    for j in fmt.shown:
         if vis[j] > MIN_VIS:
             filled = skeleton is not None and skeleton.measured[j]
-            cv2.circle(img, tuple(p), 3 if j in fmt.face else 5, color, -1 if filled else 2, cv2.LINE_AA)
+            cv2.circle(img, tuple(px[j]), 5, color, -1 if filled else 2, cv2.LINE_AA)
 
 
 def draw_people(img, people, skeleton=True, labels=True):
