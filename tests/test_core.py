@@ -115,6 +115,27 @@ class LiftTest(unittest.TestCase):
         np.testing.assert_allclose(sk.points[9], RGB_K.backproject(*pixels[9], z), atol=1e-4)
         self.assertEqual(sk.fmt, HALPE26)
 
+    def test_few_outlier_joints_do_not_move_the_body_plane(self):
+        """只有頭部一點量到深度且是背景（遮罩邊緣）時，其餘關節要放在遮罩的深度上，不能跟著那個錯值。"""
+        pixels = np.array([  # Halpe26 站姿：臉、肩肘腕、髖膝踝、頭頂、頸、骨盆、腳趾、腳跟
+            [640, 150], [630, 140], [650, 140], [620, 145], [660, 145], [600, 220], [680, 220],
+            [580, 300], [700, 300], [570, 380], [710, 380], [615, 400], [665, 400], [612, 520], [668, 520],
+            [610, 640], [670, 640], [640, 110], [640, 200], [640, 400], [600, 700], [680, 700],
+            [590, 705], [690, 705], [615, 690], [665, 690]], np.float32)
+        pose = PoseObservation(pixels, np.ones(26, np.float32), None, HALPE26)
+        depth = np.full((360, 640), 700, np.uint16)  # 人在 0.7 m
+        win = CFG["skeleton"]["depth_window"]
+        uv = (pixels * 0.5).astype(int)
+        for u, v in uv:  # 每個關節附近都量不到深度（太近、反光等）
+            depth[v - 3 * win:v + 3 * win + 1, u - 3 * win:u + 3 * win + 1] = 0
+        u, v = uv[0]
+        depth[v - win:v + win + 1, u - win:u + win + 1] = 1100  # 鼻子量到後方背景
+        mask = np.ones(depth.shape, bool)
+        sk = lift_person(pose, depth, 0.5, RGB_K, CFG["skeleton"], mask)
+        self.assertTrue(sk.measured.any())
+        self.assertFalse(sk.measured[list(HALPE26.torso)].any())  # 只有臉部附近量到（錯的 1.1 m）
+        self.assertAlmostEqual(float(np.median(sk.points[~sk.measured, 2])), 0.7, delta=0.02)
+
     def test_no_depth_estimates_distance_from_torso_length(self):
         """沒有深度時用軀幹長估距離：軀幹像素長 = fy × 0.5 m ÷ 距離。"""
         z_true = 3.0

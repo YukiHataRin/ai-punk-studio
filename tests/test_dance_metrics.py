@@ -6,7 +6,7 @@ import numpy as np
 
 from aipunk_studio.core import dance_metrics as dm
 from aipunk_studio.core.skeleton_format import HALPE26, MEDIAPIPE33
-from aipunk_studio.core.types import Skeleton3D, TrackedPerson
+from aipunk_studio.core.types import PoseObservation, Skeleton3D, TrackedPerson
 
 FPS = 30.0
 
@@ -54,44 +54,97 @@ class EngineTest(unittest.TestCase):
         m = run(dm.DanceMetricsEngine(), frames)
         expected = (dm.LIMB_WEIGHTS["L_Arm"] / 2) * omega ** 2  # 只有左前臂在轉
         self.assertAlmostEqual(m["energy"], expected, places=3)
-        self.assertLess(m["sync_velocity"], 0.01)  # 只有左邊動 → 完全不平衡
+        # 只有左邊動：平衡 = 1 − ωL / (ωL + 靜止門檻 × 2 組肢體)，ωL 為左臂兩段的平均角速度
+        omega_l = omega / 2
+        self.assertAlmostEqual(m["sync_velocity"], 1 - omega_l / (omega_l + 2 * dm.OMEGA_REST), places=3)
+        fast = [rotate_forearm(standing(), dm.L_ELBOW, dm.L_WRIST, 6 * np.pi * i / FPS) for i in range(10)]
+        self.assertLess(run(dm.DanceMetricsEngine(), fast)["sync_velocity"], 0.15)  # 動作明顯時接近原公式的 0
 
     def test_mirrored_limbs_are_synchronized(self):
-        def frames(phase):
+        def frames(phase, amplitude=1.0):
             out = []
             for i in range(40):
                 speed = 1 + np.sin(i / 3)  # 速度隨時間變化，相關係數才有意義
-                ang_l = 0.4 * np.sin(i / 5)
-                ang_r = 0.4 * np.sin(i / 5 + phase)
+                ang_l = amplitude * np.sin(i / 5)
+                ang_r = amplitude * np.sin(i / 5 + phase)
                 p = rotate_forearm(standing(), dm.L_ELBOW, dm.L_WRIST, ang_l * speed)
                 out.append(rotate_forearm(p, dm.R_ELBOW, dm.R_WRIST, -ang_r * speed))
             return out
         same = run(dm.DanceMetricsEngine(), frames(0.0))
-        self.assertGreater(same["sync_correlation"], 0.95)
+        self.assertGreater(same["sync_correlation"], 0.9)
         self.assertGreater(same["sync_velocity"], 0.95)
+        tiny = run(dm.DanceMetricsEngine(), frames(0.0, amplitude=0.1))  # 幅度接近抖動：刻意縮向 0
+        self.assertLess(tiny["sync_correlation"], same["sync_correlation"])
+        self.assertGreater(tiny["sync_correlation"], 0.0)
+
+    def test_still_jitter_does_not_swing_symmetry(self):
+        """靜止但骨架有 1.5 mm 抖動：平衡應穩定接近 1、協調接近 0（原公式會在 0–1、−1–1 之間亂跳）。"""
+        rng = np.random.default_rng(7)
+        frames = [standing() + rng.normal(0, 0.0015, (17, 3)) for _ in range(90)]
+        e = dm.DanceMetricsEngine()
+        out = [e.update(p, i / FPS) for i, p in enumerate(frames)][30:]
+        balance = np.array([m["sync_velocity"] for m in out])
+        corr = np.array([m["sync_correlation"] for m in out])
+        self.assertGreater(np.median(balance), 0.8)
+        self.assertLess(balance.std(), 0.1)
+        self.assertLess(np.abs(corr).max(), 0.4)
+        wl, wr = np.array(e.omega_l), np.array(e.omega_r)  # 同一段資料套原公式，作為對照
+        original = 1 - np.abs(wl - wr) / (np.maximum(wl, wr) + 1e-6)
+        self.assertGreater(original.std(), 1.5 * balance.std())
+
+    def test_undetected_joints_are_ignored(self):
+        """腳沒入鏡（骨架模型猜的腳在亂跳）、上半身靜止：猜的腳不能被當成動作。"""
+        rng = np.random.default_rng(3)
+        detected = np.ones(17, bool)
+        detected[[dm.L_KNEE, dm.R_KNEE, dm.L_ANKLE, dm.R_ANKLE]] = False
+        e = dm.DanceMetricsEngine()
+        for i in range(10):
+            p = standing()
+            p[[dm.L_KNEE, dm.R_KNEE, dm.L_ANKLE, dm.R_ANKLE]] += rng.normal(0, 0.1, (4, 3))
+            m = e.update(p, i / FPS, floor_y=0.93, detected=detected)
+        self.assertAlmostEqual(m["energy"], 0.0)
+        self.assertAlmostEqual(m["torque"], 0.0)
+        self.assertAlmostEqual(m["jerk"], 0.0)
+        self.assertAlmostEqual(m["sync_velocity"], 1.0)
+        self.assertAlmostEqual(m["curvature"], 0.0)  # 只平均偵測到的兩個手腕
+        self.assertIsNone(m["height"])  # 看不到腳：重心高度與晃動不可靠
+        self.assertIsNone(m["sway"])
+        nothing = dm.DanceMetricsEngine()
+        for i in range(3):
+            m = nothing.update(standing(), i / FPS, detected=np.zeros(17, bool))
+        self.assertTrue(all(v is None for v in m.values()))
 
     def test_expansion_unit_cube(self):
         p = np.full((17, 3), 0.5)  # 其餘關節在內部
         corners = np.array([[x, y, z] for x in (0, 1) for y in (0, 1) for z in (0, 1)], float)
         p[:8] = corners
-        self.assertAlmostEqual(dm.DanceMetricsEngine._expansion(p), 1.0, places=6)
-        self.assertEqual(dm.DanceMetricsEngine._expansion(np.zeros((17, 3))), 0.0)  # 退化不會出錯
+        all_seen = np.ones(17, bool)
+        self.assertAlmostEqual(dm.DanceMetricsEngine._expansion(p, all_seen), 1.0, places=6)
+        self.assertEqual(dm.DanceMetricsEngine._expansion(np.zeros((17, 3)), all_seen), 0.0)  # 退化不會出錯
         flat = np.random.default_rng(1).normal(size=(17, 3))
         flat[:, 2] = 2.0  # 沒有深度時所有關節在同一深度平面 → 扁平
-        self.assertEqual(dm.DanceMetricsEngine._expansion(flat), 0.0)
+        self.assertEqual(dm.DanceMetricsEngine._expansion(flat, all_seen), 0.0)
+        half = all_seen.copy()
+        half[[1, 3, 5, 7]] = False  # z = 1 的四個角沒偵測到 → 底面與中心點構成的金字塔
+        self.assertAlmostEqual(dm.DanceMetricsEngine._expansion(p, half), 1 / 6, places=6)
+        self.assertIsNone(dm.DanceMetricsEngine._expansion(p, np.arange(17) < 3))  # 少於 4 個關節
 
     def test_height_above_floor_and_sway(self):
         p = standing()
         com = dm.MASS_WEIGHTS @ p
-        height, sway = dm.DanceMetricsEngine._stability(p, floor_y=0.93)
+        seen = np.ones(17, bool)
+        height, sway = dm.DanceMetricsEngine._stability(p, seen, floor_y=0.93)
         self.assertAlmostEqual(height, 0.93 - com[1])
         self.assertAlmostEqual(sway, 0.0, places=6)  # 左右對稱，重心正好在兩腳中點上方
         leaning = p.copy()
         leaning[[dm.L_ANKLE, dm.R_ANKLE], 0] += 0.2  # 兩腳往右移 20 cm
-        _, sway = dm.DanceMetricsEngine._stability(leaning, floor_y=0.93)
+        _, sway = dm.DanceMetricsEngine._stability(leaning, seen, floor_y=0.93)
         # 腳踝本身也有質量，移動腳會帶著重心移一點：0.2 × (1 − 兩腳踝質量權重)
         self.assertAlmostEqual(sway, 0.2 * (1 - 2 * dm.MASS_WEIGHTS[dm.L_ANKLE]), places=6)
-        self.assertIsNone(dm.DanceMetricsEngine._stability(p, floor_y=None)[0])
+        self.assertIsNone(dm.DanceMetricsEngine._stability(p, seen, floor_y=None)[0])
+        no_feet = seen.copy()
+        no_feet[dm.L_ANKLE] = False
+        self.assertEqual(dm.DanceMetricsEngine._stability(p, no_feet, floor_y=0.93), (None, None))
 
     def test_curvature_of_circular_wrist(self):
         r, w = 0.5, 2 * np.pi * 0.5  # 半徑 0.5 m、每秒半圈 → 速度 1.57 m/s
@@ -126,8 +179,10 @@ class MappingTest(unittest.TestCase):
         np.testing.assert_allclose(h[dm.HEAD], halpe[0])
 
 
-def person(tid, points, measured=True):
-    return TrackedPerson(tid, skeleton=Skeleton3D(points.astype(np.float32), np.full(26, measured), 2.0, HALPE26))
+def person(tid, points, measured=True, visibility=None):
+    pose = None if visibility is None else PoseObservation(np.zeros((26, 2), np.float32), visibility, None, HALPE26)
+    return TrackedPerson(tid, pose=pose,
+                         skeleton=Skeleton3D(points.astype(np.float32), np.full(26, measured), 2.0, HALPE26))
 
 
 class MetricJointsTest(unittest.TestCase):
@@ -165,6 +220,22 @@ class MultiPersonTest(unittest.TestCase):
         metrics.update([person(1, pts, measured=False)], 1 / FPS)
         self.assertIsNone(metrics.floor_y)
         self.assertIn(1, out)
+
+    def test_pose_visibility_marks_undetected_joints(self):
+        """骨架模型信心值低的關節（例如沒入鏡的腳）不參與指標。"""
+        pts = np.zeros((26, 3))
+        pts[:, 1] = np.linspace(-0.8, 0.9, 26)
+        pts[:, 0] = np.linspace(-0.3, 0.3, 26)
+        pts[:, 2] = 2 + np.linspace(0, 0.2, 26)
+        vis = np.ones(26, np.float32)
+        vis[[13, 14, 15, 16]] = 0.1  # 膝、踝
+        metrics = dm.DanceMetrics()
+        for i in range(3):
+            out = metrics.update([person(1, pts, visibility=vis)], i / FPS)
+        self.assertIsNone(out[1]["sway"])
+        detected = dm.to_h36m_detected(vis >= 0.5, HALPE26)
+        self.assertFalse(detected[[dm.L_KNEE, dm.R_KNEE, dm.L_ANKLE, dm.R_ANKLE]].any())
+        self.assertTrue(detected[[dm.PELVIS, dm.SPINE, dm.NECK, dm.L_WRIST]].all())
 
 
 if __name__ == "__main__":

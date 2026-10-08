@@ -15,7 +15,7 @@
 
 量不到深度的關節（推估）：
 - 有 world landmarks（MediaPipe）：把 world 骨架平移到實測關節上補齊；
-- 沒有（RTMPose）：2D 位置照用，深度取這個人實測關節的中位數（沒有實測就用 ref），
+- 沒有（RTMPose）：2D 位置照用，深度取這個人實測關節的中位數（只看身體關節，實測少於 MIN_PLANE_JOINTS 個就用 ref），
   也就是假設該關節落在人體所在的深度平面上。
 """
 
@@ -27,6 +27,7 @@ from .types import PoseObservation, Skeleton3D
 FALLBACK_DEPTH_M = 2.5  # 連身體尺寸都看不到時的假設距離
 MIN_EST_M, MAX_EST_M = 0.3, 15.0
 MIN_SAMPLES = 3
+MIN_PLANE_JOINTS = 3  # 推估關節的深度平面：至少這麼多實測關節才用它們的中位數，否則用基準深度
 
 
 def _window(arr, u, v, win):
@@ -56,6 +57,14 @@ def reference_depth(reg_depth, uv, visible, win, torso, mask=None):
     vals = [_valid_m(_window(reg_depth, *uv[j], win * 2 + 1)) for j in torso if visible[j]]
     vals = np.concatenate(vals) if vals else np.empty(0)
     return float(np.median(vals)) if vals.size else 0.0
+
+
+def body_mask(fmt):
+    """可以當深度錨點的關節：排除鼻子、臉部點與頭頂。"""
+    m = np.zeros(fmt.size, bool)
+    m[list(fmt.body)] = True
+    m[[fmt.head, fmt.names.index("nose")]] = False
+    return m
 
 
 def estimate_distance(person: PoseObservation, rgb_k: Intrinsics, params):
@@ -115,7 +124,10 @@ def lift_person(person: PoseObservation, reg_depth, reg_scale, rgb_k: Intrinsics
                 offset = rgb_k.backproject(*hip_px, ref)
             pts[missing] = person.world[missing] + offset
         else:
-            z = float(np.median(pts[measured, 2])) if measured.any() else ref
+            # 深度平面只看身體關節：臉部與頭頂擠在頭部邊緣，常量到後方背景；
+            # 實測的身體關節太少時中位數不可靠，改用整個遮罩的基準深度，否則一兩個錯值就會把整副骨架推走
+            anchors = measured & body_mask(fmt)
+            z = float(np.median(pts[anchors, 2])) if anchors.sum() >= MIN_PLANE_JOINTS or not ref else ref
             pts[missing] = rgb_k.backproject(person.pixels[missing, 0], person.pixels[missing, 1], z)
 
     sk = Skeleton3D(pts, measured, 0.0, fmt)
