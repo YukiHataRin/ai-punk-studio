@@ -27,31 +27,48 @@ RTMPose 估計關節，再結合深度換算成真實尺度的 3D 骨架，即�
 | 項目 | 說明 |
 |---|---|
 | 相機 | Orbbec Astra Pro；沒有時任何 webcam 也能用（3D 為估計）|
-| Python | **3.11**（由下方 conda 指令建立）|
-| 其他 | conda（Miniconda / Miniforge）、約 4–8 GB 磁碟空間 |
+| 系統 | macOS（Apple Silicon）、Linux x86_64、Windows x86_64 |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | Python 套件與環境管理工具；Python 3.11 會由 uv 自動下載，不需要另外安裝 |
+| 磁碟空間 | 約 3–8 GB（Linux / Windows 的 CUDA 版 PyTorch 較大）|
 
-### macOS / Linux
+安裝 uv（擇一）：
+
+```bash
+brew install uv                                    # macOS（Homebrew）
+```
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh    # macOS / Linux
+```
+
+```powershell
+winget install --id=astral-sh.uv -e                # Windows
+```
+
+### 安裝
 
 ```bash
 git clone https://github.com/YukiHataRin/ai-punk-studio.git
 cd ai-punk-studio
-
-# 1. 在專案內建立 Python 3.11 環境
-conda create -p ./.conda python=3.11 -y
-
-# 2. 安裝套件（要用 NVIDIA GPU 的話，請先看下方「NVIDIA GPU」）
-PYTHONNOUSERSITE=1 ./.conda/bin/python -m pip install -r requirements.txt
-
-# 3. ultralytics 會另外裝 opencv-python，與 mediapipe 需要的 contrib 版衝突，只保留 contrib
-./.conda/bin/python -m pip uninstall -y opencv-python
-./.conda/bin/python -m pip install --force-reinstall --no-deps opencv-contrib-python==5.0.0.93
-
-# 4. 安裝本專案
-./.conda/bin/python -m pip install -e . --no-deps
-
-# 5. 下載模型（YOLO11n-seg、RTMPose-m、MediaPipe Pose）
-./.conda/bin/python tools/download_models.py
+uv sync                                            # macOS：建立 .venv 並依 uv.lock 安裝所有套件
+.venv/bin/python tools/download_models.py          # 下載模型（YOLO11n-seg、RTMPose-m、MediaPipe Pose）
 ```
+
+Linux / Windows 要依顯示卡選擇 PyTorch 版本，把 `uv sync` 換成下面其中一個（見下方「PyTorch 版本」）：
+
+```bash
+uv sync --extra cu130                              # NVIDIA RTX 50 系列，或驅動支援 CUDA 13 以上
+```
+
+```bash
+uv sync --extra cu126                              # 較舊的 NVIDIA 顯示卡或驅動
+```
+
+```bash
+uv sync --extra cpu                                # 沒有 NVIDIA 顯示卡
+```
+
+Windows（PowerShell）的 Python 路徑是 `.venv\Scripts\python.exe`，例如 `.venv\Scripts\python.exe tools\download_models.py`。
 
 Linux 若出現 `libGLESv2.so.2: cannot open shared object file` 之類的錯誤，請補裝系統函式庫：
 
@@ -59,43 +76,25 @@ Linux 若出現 `libGLESv2.so.2: cannot open shared object file` 之類的錯誤
 sudo apt install libegl1 libgl1 libgles2 libxkbcommon0 libfontconfig1 libdbus-1-3
 ```
 
-### Windows（PowerShell）
+所有套件的版本都鎖定在 `uv.lock`，每個人裝到的版本完全一樣。
 
-```powershell
-git clone https://github.com/YukiHataRin/ai-punk-studio.git
-cd ai-punk-studio
-conda create -p .\.conda python=3.11 -y
-$env:PYTHONNOUSERSITE = "1"
-.\.conda\python.exe -m pip install -r requirements.txt
-.\.conda\python.exe -m pip uninstall -y opencv-python
-.\.conda\python.exe -m pip install --force-reinstall --no-deps opencv-contrib-python==5.0.0.93
-.\.conda\python.exe -m pip install -e . --no-deps
-.\.conda\python.exe tools\download_models.py
-```
+### PyTorch 版本（Linux / Windows）
 
-### NVIDIA GPU（Linux / Windows，選用）
+| 選項 | 適用 |
+|---|---|
+| `--extra cu130` | `nvidia-smi` 右上角的 `CUDA Version` 為 13.0 以上；**RTX 50 系列（Blackwell）必須用這個** |
+| `--extra cu126` | `CUDA Version` 為 12.6–12.x 的較舊顯示卡或驅動 |
+| `--extra cpu` | 沒有 NVIDIA 顯示卡（可以跑，但較慢） |
 
-沒有 GPU 也能跑（較慢）。要用 NVIDIA GPU 加速，**請依自己的顯示卡與驅動安裝對應的 CUDA 版 PyTorch**，
-並在上面的步驟 2 之前先裝好，`pip install -r requirements.txt` 就會沿用、不會覆蓋：
+- macOS 不需要選，會自動使用 Apple GPU（MPS）。
+- 之後每次執行 `uv sync` 都要帶**同一個** `--extra`，否則會換回預設的 PyTorch。
+- 確認 GPU 可用（應印出 `True` 與顯示卡名稱）：
 
-1. 查驅動支援的 CUDA 版本：執行 `nvidia-smi`，看右上角的 `CUDA Version`（這是驅動**最高**支援的版本）
-2. 到 [PyTorch 官網的安裝選擇器](https://pytorch.org/get-started/locally/) 選 Pip、你的系統與**不高於上述版本**的 CUDA，
-   複製它給的指令，把開頭的 `pip` 換成專案環境的 Python，例如：
+  ```bash
+  .venv/bin/python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+  ```
 
-   ```bash
-   ./.conda/bin/python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-   ```
-
-   `cu128` 只是範例，請換成選擇器給你的版本。RTX 50 系列（Blackwell）需要 CUDA 12.8 以上
-3. 確認 GPU 可用（應印出 `True` 與顯示卡名稱）：
-
-   ```bash
-   ./.conda/bin/python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
-   ```
-
-4. **RTMPose**（選用）：預設在 CPU 上執行即可。要用 GPU 時把 `onnxruntime` 換成
-   [`onnxruntime-gpu`](https://onnxruntime.ai/docs/install/)，並依其文件選擇與 CUDA、cuDNN 相容的版本；
-   裝好後會自動改用 CUDA，介面右側會顯示「RTMPose-m：CUDA」
+- RTMPose 骨架固定用 ONNX Runtime 的 CPU 版（每人約 10 ms），已足以即時處理；macOS 會自動改用 CoreML。
 
 ### Astra Pro 驅動
 
@@ -108,20 +107,21 @@ $env:PYTHONNOUSERSITE = "1"
 
 ```bash
 git pull                                           # 更新到最新版
-git checkout v0.6.0                                # 或切到指定版本（版本列表見 Releases）
-./.conda/bin/python -m pip install -e . --no-deps  # 切換後重跑，讓版本號更新
+uv sync                                            # 依新的 uv.lock 更新套件（Linux / Windows 記得帶同一個 --extra）
 ```
+
+要切到指定版本，用 `git checkout v0.6.0` 這類指令（版本列表見 Releases）。v0.6.0（含）以前的版本是用 conda 安裝的，請照該版本 README 的步驟。
 
 ## 使用方式
 
 ### 啟動
 
 ```bash
-./.conda/bin/python -m aipunk_studio
+.venv/bin/python -m aipunk_studio
 ```
 
 或用啟動檔：macOS 在 Finder 雙擊 `launch.command`、Linux `./launch.sh`、Windows 雙擊 `launch.bat`
-（Windows 指令列請把 `./.conda/bin/python` 換成 `.\.conda\python.exe`）。
+（Windows 指令列請把 `.venv/bin/python` 換成 `.venv\Scripts\python.exe`）。
 
 在右側「來源」選擇攝影機後按「**開始**」：
 
@@ -135,13 +135,13 @@ git checkout v0.6.0                                # 或切到指定版本（版
 常用參數：
 
 ```bash
-./.conda/bin/python -m aipunk_studio --start --view split   # 開啟即開始，並排顯示 3D
-./.conda/bin/python -m aipunk_studio --tab metrics          # 開啟時顯示指標分頁
-./.conda/bin/python -m aipunk_studio --camera "j5 WebCam JVCU100"   # 預選攝影機（名稱、裝置 ID 或編號）
-./.conda/bin/python -m aipunk_studio --list-cameras         # 列出相機
-./.conda/bin/python -m aipunk_studio --play recordings/<時間>   # 回放錄製，不需要相機
-./.conda/bin/python -m aipunk_studio --no-seg               # 只跑骨架（不做分割）
-./.conda/bin/python -m aipunk_studio --version              # 顯示版本
+.venv/bin/python -m aipunk_studio --start --view split   # 開啟即開始，並排顯示 3D
+.venv/bin/python -m aipunk_studio --tab metrics          # 開啟時顯示指標分頁
+.venv/bin/python -m aipunk_studio --camera "j5 WebCam JVCU100"   # 預選攝影機（名稱、裝置 ID 或編號）
+.venv/bin/python -m aipunk_studio --list-cameras         # 列出相機
+.venv/bin/python -m aipunk_studio --play recordings/<時間>   # 回放錄製，不需要相機
+.venv/bin/python -m aipunk_studio --no-seg               # 只跑骨架（不做分割）
+.venv/bin/python -m aipunk_studio --version              # 顯示版本
 ```
 
 ### 介面
@@ -193,7 +193,7 @@ git checkout v0.6.0                                # 或切到指定版本（版
 轉成 CSV（輸出關節座標與 `metrics.csv`，可直接用 Excel / pandas 開）：
 
 ```bash
-./.conda/bin/python -m aipunk_studio --export recordings/<時間>
+.venv/bin/python -m aipunk_studio --export recordings/<時間>
 ```
 
 座標系為 RGB 相機座標系：**x 向右、y 向下、z 朝前**，單位公尺。
@@ -203,11 +203,11 @@ git checkout v0.6.0                                # 或切到指定版本（版
 不開視窗、只當伺服器：
 
 ```bash
-./.conda/bin/python -m aipunk_studio --headless                          # 自動選 Astra Pro，ws://127.0.0.1:8765
-./.conda/bin/python -m aipunk_studio --headless --camera "j5 WebCam JVCU100"
-./.conda/bin/python -m aipunk_studio --headless --ws-host 0.0.0.0        # 開放區域網路其他裝置連線
-./.conda/bin/python -m aipunk_studio --headless --record                 # 同時錄製
-./.conda/bin/python -m aipunk_studio --headless --play recordings/<時間>   # 用錄影當來源
+.venv/bin/python -m aipunk_studio --headless                          # 自動選 Astra Pro，ws://127.0.0.1:8765
+.venv/bin/python -m aipunk_studio --headless --camera "j5 WebCam JVCU100"
+.venv/bin/python -m aipunk_studio --headless --ws-host 0.0.0.0        # 開放區域網路其他裝置連線
+.venv/bin/python -m aipunk_studio --headless --record                 # 同時錄製
+.venv/bin/python -m aipunk_studio --headless --play recordings/<時間>   # 用錄影當來源
 ```
 
 `Ctrl-C` 結束（或加 `--duration 秒數`）。有視窗時，在右側「串流（WebSocket）」勾選「啟用」，或啟動時加 `--ws`；埠號可在同一區修改（串流關閉時才能改，0 為自動選可用埠），也可以用 `--ws-port` 指定。
@@ -215,8 +215,8 @@ git checkout v0.6.0                                # 或切到指定版本（版
 用戶端範例：
 
 ```bash
-./.conda/bin/python examples/ws_client.py                  # 終端機印出每幀摘要
-./.conda/bin/python examples/ws_client.py --json > s.jsonl # 存原始訊息
+.venv/bin/python examples/ws_client.py                  # 終端機印出每幀摘要
+.venv/bin/python examples/ws_client.py --json > s.jsonl # 存原始訊息
 ```
 
 瀏覽器：在 `examples/` 執行 `python3 -m http.server`，再開 `http://127.0.0.1:8000/web_viewer.html`，會即時畫出輪廓、骨架、位置與指標。

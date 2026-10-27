@@ -8,7 +8,31 @@ dynamic = ["version"]
 description = "Orbbec Astra Pro RGB-D 人體分割、多人 3D 骨架與 ID 追蹤"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
-requires-python = ">=3.11,<3.12"   # pyorbbecsdk 1.3.2 在 macOS 只有 cp311 wheel
+requires-python = "==3.11.*"   # pyorbbecsdk 1.3.2 在 macOS 只有 cp311 wheel
+dependencies = [
+    "pyorbbecsdk==1.3.2",
+    "mediapipe==0.10.35",               # 1.0.1 的 CPU delegate 在 macOS 會崩潰；GPU delegate 兩版都會洩漏記憶體
+    "numpy==2.4.6",
+    "opencv-contrib-python==5.0.0.93",  # mediapipe 需要 contrib 版；ultralytics 的 opencv-python 由下方 override 排除
+    "torch>=2.7",
+    "torchvision>=0.22",
+    "ultralytics>=8.3,<9",
+    "lap>=0.5.12",
+    "scipy>=1.11",                      # 舞蹈指標的凸包體積
+    "onnxruntime>=1.20",                # RTMPose 推論（CoreML / CPU）
+    "websockets>=14,<18",               # WebSocket 串流
+    "cv2-enumerate-cameras>=1.4,<2",
+    "PySide6>=6.8,<7",                  # Qt 介面
+    "qt-material>=2.17,<3",
+    "pyqtgraph>=0.13",
+    "PyOpenGL>=3.1",
+]
+
+# PyTorch 的版本（Linux / Windows 擇一，macOS 不需要）：uv sync --extra cpu | cu126 | cu130
+[project.optional-dependencies]
+cpu = ["torch>=2.7", "torchvision>=0.22"]
+cu126 = ["torch>=2.7", "torchvision>=0.22"]   # CUDA 12.6：RTX 40 系列以前、驅動較舊
+cu130 = ["torch>=2.7", "torchvision>=0.22"]   # CUDA 13.0：RTX 50 系列（Blackwell）需要
 
 [project.urls]
 Repository = "https://github.com/YukiHataRin/ai-punk-studio"
@@ -21,3 +45,41 @@ version = {attr = "aipunk_studio.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv]
+# mediapipe 沒有 Intel Mac 版，只鎖定這三個平台
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+conflicts = [[{ extra = "cpu" }, { extra = "cu126" }, { extra = "cu130" }]]
+# ultralytics 依賴 opencv-python，與 mediapipe 的 opencv-contrib-python 衝突（同為 cv2）；contrib 是超集，排除前者
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu126", extra = "cu126", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu130", extra = "cu130", marker = "sys_platform != 'darwin'" },
+]
+torchvision = [
+    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu126", extra = "cu126", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu130", extra = "cu130", marker = "sys_platform != 'darwin'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true

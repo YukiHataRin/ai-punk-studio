@@ -10,9 +10,9 @@ AI Punk Studio 用 WebSocket 即時推送每一幀的人物資料：追蹤 ID、
 ## 開啟串流
 
 ```bash
-./.conda/bin/python -m aipunk_studio --headless                   # 不開視窗，只當伺服器（預設開啟串流）
-./.conda/bin/python -m aipunk_studio --ws                         # 開介面並開啟串流
-./.conda/bin/python -m aipunk_studio --headless --ws-host 0.0.0.0 --ws-port 9000   # 開放區域網路、改埠號
+.venv/bin/python -m aipunk_studio --headless                   # 不開視窗，只當伺服器（預設開啟串流）
+.venv/bin/python -m aipunk_studio --ws                         # 開介面並開啟串流
+.venv/bin/python -m aipunk_studio --headless --ws-host 0.0.0.0 --ws-port 9000   # 開放區域網路、改埠號
 ```
 
 介面中也可以在右側「串流（WebSocket）」勾選「啟用」，開始或停止擷取時不會中斷連線。

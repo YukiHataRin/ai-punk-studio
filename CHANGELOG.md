@@ -4,6 +4,9 @@
 每個版本在 GitHub 上都有對應的 tag（例如 `v0.4.0`），可用 `git checkout v0.4.0` 切換。
 
 ## 未發布
+- **改用 uv 管理環境**（取代 conda + requirements.txt）：套件定義在 `pyproject.toml`、版本鎖定在 `uv.lock`；
+  `uv sync` 一個指令完成安裝，Python 3.11 由 uv 自動下載。OpenCV 衝突由 uv override 處理，不再需要手動移除 opencv-python。
+  Linux / Windows 以 `--extra cpu | cu126 | cu130` 選擇 PyTorch 版本（RTX 50 系列用 cu130）。啟動檔改用 `.venv`
 - 介面的「串流（WebSocket）」區可以修改埠號（串流關閉時才能改，0 為自動選可用埠）
 - 新增 [WebSocket API 文件](docs/API.md)：完整的訊息格式、欄位、座標系、`null` 規則、設定與 Python / JavaScript 範例；README 改為連結到這份文件
 - **修正深度單位（影響所有 3D 量測）**：Astra Pro 經 pyorbbecsdk 讀到的深度原始值以 1 cm 為單位，
